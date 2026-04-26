@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  GUEST
+  OWNER
+  ADMIN
+}
+
+enum ApartmentStatus {
+  PENDING    // čeka odobrenje admina
+  APPROVED   // aktivan oglas
+  REJECTED   // odbijen od admina
+  INACTIVE   // vlasnik ga isključio
+}
+
+enum CancellationPolicy {
+  FLEXIBLE    // besplatno otkazivanje do 24h prije
+  MODERATE    // besplatno otkazivanje do 5 dana prije
+  STRICT      // nema povrata
+}
+
+enum ReservationStatus {
+  PENDING    // čeka potvrdu vlasnika
+  CONFIRMED  // potvrđena
+  CANCELLED  // otkazana (gost ili vlasnik)
+  REJECTED   // odbio vlasnik
+  COMPLETED  // boravak završen
+}
+
+enum NotificationType {
+  RESERVATION_NEW
+  RESERVATION_CONFIRMED
+  RESERVATION_REJECTED
+  RESERVATION_CANCELLED
+  RESERVATION_COMPLETED
+  REVIEW_NEW
+  MESSAGE_NEW
+  APARTMENT_APPROVED
+  APARTMENT_REJECTED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  role         Role     @default(GUEST)
+  avatarUrl    String?  @map("avatar_url")
+  phone        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  apartments        Apartment[]
+  reservations      Reservation[]
+  reviews           Review[]
+  sentMessages      Message[]
+  notifications     Notification[]
+
+  @@map("users")
+}
+
+model Apartment {
+  id                 String              @id @default(uuid())
+  ownerId            String              @map("owner_id")
+  title              String
+  description        String
+  city               String
+  country            String
+  address            String
+  latitude           Decimal             @db.Decimal(9, 6)
+  longitude          Decimal             @db.Decimal(9, 6)
+  pricePerNight      Decimal             @map("price_per_night") @db.Decimal(10, 2)
+  maxGuests          Int                 @map("max_guests")
+  minNights          Int                 @default(1) @map("min_nights")
+  cancellationPolicy CancellationPolicy  @default(FLEXIBLE) @map("cancellation_policy")
+  status             ApartmentStatus     @default(PENDING)
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  owner              User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  contents           ApartmentContent[]
+  reservations       Reservation[]
+  reviews            Review[]
+  availabilityBlocks AvailabilityBlock[]
+
+  @@map("apartments")
+}
+
+model Content {
+  id         String             @id @default(uuid())
+  name       String             @unique
+  icon       String             // naziv ikone (npr. "wifi", "parking", "pool")
+
+  apartments ApartmentContent[]
+
+  @@map("contents")
+}
+
+model ApartmentContent {
+  apartmentId String    @map("apartment_id")
+  contentId   String    @map("content_id")
+
+  apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  content     Content   @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@id([apartmentId, contentId])
+  @@map("apartment_contents")
+}
+
+model Reservation {
+  id          String            @id @default(uuid())
+  apartmentId String            @map("apartment_id")
+  guestId     String            @map("guest_id")
+  checkIn     DateTime          @map("check_in") @db.Date
+  checkOut    DateTime          @map("check_out") @db.Date
+  numGuests   Int               @map("num_guests")
+  totalPrice  Decimal           @map("total_price") @db.Decimal(10, 2)
+  status      ReservationStatus @default(PENDING)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  guest       User      @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  review      Review?
+  messages    Message[]
+
+  @@map("reservations")
+}
+
+model Review {
+  id            String    @id @default(uuid())
+  reservationId String    @unique @map("reservation_id") // 1 recenzija po rezervaciji
+  apartmentId   String    @map("apartment_id")
+  guestId       String    @map("guest_id")
+  rating        Int       // 1–5
+  comment       String
+  ownerReply    String?   @map("owner_reply")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  apartment     Apartment   @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  guest         User        @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+model AvailabilityBlock {
+  id          String    @id @default(uuid())
+  apartmentId String    @map("apartment_id")
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime  @map("end_date") @db.Date
+  reason      String?
+
+  apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@map("availability_blocks")
+}
+
+model Message {
+  id            String      @id @default(uuid())
+  reservationId String      @map("reservation_id")
+  senderId      String      @map("sender_id")
+  content       String
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  sender        User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  content   String
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
