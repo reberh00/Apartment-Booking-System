@@ -4,6 +4,8 @@ const prisma = require('../utils/prisma');
 const { authenticate, authorize } = require('../middleware/auth');
 const { createError } = require('../middleware/errorHandler');
 
+const MAX_RESERVATION_RETRIES = 3;
+
 const reservationSchema = z.object({
   apartmentId: z.string().uuid(),
   checkIn:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format: YYYY-MM-DD'),
@@ -11,11 +13,11 @@ const reservationSchema = z.object({
   numGuests:   z.number().int().positive(),
 });
 
-async function checkAvailability(apartmentId, checkIn, checkOut, excludeReservationId = null) {
+async function checkAvailability(db, apartmentId, checkIn, checkOut, excludeReservationId = null) {
   const ci = new Date(checkIn);
   const co = new Date(checkOut);
 
-  const conflictingReservation = await prisma.reservation.findFirst({
+  const conflictingReservation = await db.reservation.findFirst({
     where: {
       apartmentId,
       id:     { not: excludeReservationId || undefined },
@@ -25,7 +27,7 @@ async function checkAvailability(apartmentId, checkIn, checkOut, excludeReservat
     },
   });
 
-  const conflictingBlock = await prisma.availabilityBlock.findFirst({
+  const conflictingBlock = await db.availabilityBlock.findFirst({
     where: {
       apartmentId,
       startDate: { lt: co },
@@ -34,6 +36,96 @@ async function checkAvailability(apartmentId, checkIn, checkOut, excludeReservat
   });
 
   return { available: !conflictingReservation && !conflictingBlock, conflictingReservation, conflictingBlock };
+}
+
+function isSerializableRetryError(error) {
+  return error?.code === 'P2034';
+}
+
+async function createReservationWithRetry(payload) {
+  let attempt = 0;
+
+  while (attempt < MAX_RESERVATION_RETRIES) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const apartment = await tx.apartment.findFirst({
+          where: { id: payload.apartmentId, status: 'APPROVED' },
+          select: {
+            id: true,
+            ownerId: true,
+            title: true,
+            maxGuests: true,
+            minNights: true,
+            pricePerNight: true,
+          },
+        });
+
+        if (!apartment) {
+          throw createError('Apartman nije pronađen ili nije dostupan', 404);
+        }
+
+        if (apartment.ownerId === payload.guestId) {
+          throw createError('Ne možete rezervirati vlastiti apartman', 403);
+        }
+
+        if (payload.numGuests > apartment.maxGuests) {
+          throw createError(`Apartman prima maksimalno ${apartment.maxGuests} gostiju`);
+        }
+
+        const nights = Math.ceil((payload.checkOut - payload.checkIn) / (1000 * 60 * 60 * 24));
+        if (nights < apartment.minNights) {
+          throw createError(`Minimalni boravak je ${apartment.minNights} noć/i`);
+        }
+
+        const { available } = await checkAvailability(
+          tx,
+          payload.apartmentId,
+          payload.checkIn,
+          payload.checkOut,
+        );
+        if (!available) {
+          throw createError('Apartman nije dostupan u odabranom terminu', 409);
+        }
+
+        const totalPrice = parseFloat(apartment.pricePerNight) * nights;
+
+        const newReservation = await tx.reservation.create({
+          data: {
+            apartmentId: payload.apartmentId,
+            guestId: payload.guestId,
+            checkIn: payload.checkIn,
+            checkOut: payload.checkOut,
+            numGuests: payload.numGuests,
+            totalPrice,
+            status: 'PENDING',
+          },
+          include: {
+            apartment: { select: { id: true, title: true, ownerId: true } },
+            guest: { select: { id: true, firstName: true, lastName: true } },
+          },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: newReservation.apartment.ownerId,
+            type: 'RESERVATION_NEW',
+            content: `Nova rezervacija za "${newReservation.apartment.title}" od ${newReservation.guest.firstName} ${newReservation.guest.lastName}`,
+          },
+        });
+
+        return newReservation;
+      }, {
+        isolationLevel: 'Serializable',
+      });
+    } catch (error) {
+      attempt += 1;
+      if (!isSerializableRetryError(error) || attempt >= MAX_RESERVATION_RETRIES) {
+        throw error;
+      }
+    }
+  }
+
+  throw createError('Došlo je do konflikta pri rezervaciji. Pokušajte ponovno.', 409);
 }
 
 function startOfDay(date) {
@@ -125,55 +217,12 @@ router.post('/', authenticate, async (req, res, next) => {
       return next(createError('Check-in ne može biti u prošlosti'));
     }
 
-    const apartment = await prisma.apartment.findFirst({
-      where: { id: data.apartmentId, status: 'APPROVED' },
-    });
-    if (!apartment) {
-      return next(createError('Apartman nije pronađen ili nije dostupan', 404));
-    }
-
-    if (data.numGuests > apartment.maxGuests) {
-      return next(createError(`Apartman prima maksimalno ${apartment.maxGuests} gostiju`));
-    }
-
-    const nights = Math.ceil((co - ci) / (1000 * 60 * 60 * 24));
-    if (nights < apartment.minNights) {
-      return next(createError(`Minimalni boravak je ${apartment.minNights} noć/i`));
-    }
-
-    const { available } = await checkAvailability(data.apartmentId, data.checkIn, data.checkOut);
-    if (!available) {
-      return next(createError('Apartman nije dostupan u odabranom terminu'));
-    }
-
-    const totalPrice = parseFloat(apartment.pricePerNight) * nights;
-
-    const reservation = await prisma.$transaction(async (tx) => {
-      const newReservation = await tx.reservation.create({
-        data: {
-          apartmentId: data.apartmentId,
-          guestId:     req.user.id,
-          checkIn:     ci,
-          checkOut:    co,
-          numGuests:   data.numGuests,
-          totalPrice,
-          status: 'PENDING',
-        },
-        include: {
-          apartment: { select: { id: true, title: true, ownerId: true } },
-          guest:     { select: { id: true, firstName: true, lastName: true } },
-        },
-      });
-
-      await tx.notification.create({
-        data: {
-          userId:  newReservation.apartment.ownerId,
-          type:    'RESERVATION_NEW',
-          content: `Nova rezervacija za "${newReservation.apartment.title}" od ${newReservation.guest.firstName} ${newReservation.guest.lastName}`,
-        },
-      });
-
-      return newReservation;
+    const reservation = await createReservationWithRetry({
+      apartmentId: data.apartmentId,
+      guestId: req.user.id,
+      checkIn: ci,
+      checkOut: co,
+      numGuests: data.numGuests,
     });
 
     res.status(201).json(reservation);
@@ -285,7 +334,7 @@ router.get('/check-availability', async (req, res, next) => {
       return next(createError('Nedostaju parametri: apartmentId, checkIn, checkOut'));
     }
 
-    const { available } = await checkAvailability(apartmentId, checkIn, checkOut);
+    const { available } = await checkAvailability(prisma, apartmentId, checkIn, checkOut);
     res.json({ available });
   } catch (err) {
     next(err);

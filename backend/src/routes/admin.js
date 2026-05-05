@@ -76,7 +76,24 @@ router.get('/users', async (req, res, next) => {
 
 router.delete('/users/:id', async (req, res, next) => {
   try {
-    await prisma.user.delete({ where: { id: req.params.id } });
+    const targetUser = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, role: true },
+    });
+
+    if (!targetUser) {
+      return next(createError('Korisnik nije pronađen', 404));
+    }
+
+    if (targetUser.id === req.user.id) {
+      return next(createError('Admin ne može obrisati vlastiti račun', 403));
+    }
+
+    if (targetUser.role === 'ADMIN') {
+      return next(createError('Admin račun nije moguće obrisati ovom rutom', 403));
+    }
+
+    await prisma.user.delete({ where: { id: targetUser.id } });
     res.json({ message: 'Korisnik obrisan' });
   } catch (err) {
     next(err);
