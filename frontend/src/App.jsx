@@ -1,28 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
+import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { api } from './api';
-
-const defaultSearch = {
-  city: '',
-  checkIn: '',
-  checkOut: '',
-  guests: '',
-  minPrice: '',
-  maxPrice: '',
-};
-
-const defaultApartmentForm = {
-  title: '',
-  description: '',
-  city: '',
-  country: '',
-  address: '',
-  latitude: 45.815,
-  longitude: 15.9819,
-  pricePerNight: 100,
-  maxGuests: 2,
-  minNights: 1,
-  cancellationPolicy: 'FLEXIBLE',
-};
+import { defaultApartmentForm, defaultSearch } from './constants/forms';
+import PublicPage from './pages/PublicPage';
+import GuestSearchPage from './pages/routes/GuestSearchPage';
+import ProfilePage from './pages/routes/ProfilePage';
+import ReservationCreatePage from './pages/routes/ReservationCreatePage';
+import GuestReservationsPage from './pages/routes/GuestReservationsPage';
+import MessagesPage from './pages/routes/MessagesPage';
+import ReviewsPage from './pages/routes/ReviewsPage';
+import NotificationsPage from './pages/routes/NotificationsPage';
+import OwnerApartmentsPage from './pages/routes/OwnerApartmentsPage';
+import OwnerApartmentCreatePage from './pages/routes/OwnerApartmentCreatePage';
+import OwnerReservationsPage from './pages/routes/OwnerReservationsPage';
+import OwnerAnalyticsPage from './pages/routes/OwnerAnalyticsPage';
+import AdminApartmentsPage from './pages/routes/AdminApartmentsPage';
+import AdminUsersPage from './pages/routes/AdminUsersPage';
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
@@ -376,303 +369,166 @@ export default function App() {
     setFeedback('Odjavljeni ste.');
   }
 
+  function routeClassName({ isActive }) {
+    return isActive ? 'badge badge-ok' : 'badge badge-neutral';
+  }
+
   return (
     <main className="container">
       <header className="hero">
         <h1>Apartmani Platforma</h1>
-        <p>Frontend usklađen s postojećim backend API-jem i funkcionalnostima iz razrade.</p>
       </header>
 
       {error ? <div className="alert error">{error}</div> : null}
       {notice ? <div className="alert notice">{notice}</div> : null}
 
-      <section className="card">
-        <h2>Javno pretraživanje apartmana</h2>
-        <div className="grid grid-6">
-          {Object.entries(search).map(([key, value]) => (
-            <label key={key}>
-              {key}
-              <input
-                value={value}
-                onChange={(e) => setSearch((prev) => ({ ...prev, [key]: e.target.value }))}
-                placeholder={key}
-              />
-            </label>
-          ))}
-        </div>
-        <button onClick={loadApartments}>Pretraži</button>
-        <p className="meta">Rezultata: {apartmentsResult.total}</p>
-        <div className="list">
-          {apartmentsResult.apartments.map((apt) => (
-            <article key={apt.id} className="list-item">
-              <h3>{apt.title}</h3>
-              <p>{apt.city}, {apt.country}</p>
-              <p>{apt.pricePerNight} EUR / noć • max {apt.maxGuests} gostiju</p>
-              <p>ID: <code>{apt.id}</code></p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {!user ? (
+      {user ? (
         <section className="card">
-          <h2>{authMode === 'login' ? 'Prijava' : 'Registracija'}</h2>
-          <form onSubmit={submitAuth} className="grid grid-2">
-            <label>
-              Email
-              <input value={authForm.email} onChange={(e) => setAuthForm((p) => ({ ...p, email: e.target.value }))} required />
-            </label>
-            <label>
-              Lozinka
-              <input type="password" value={authForm.password} onChange={(e) => setAuthForm((p) => ({ ...p, password: e.target.value }))} required />
-            </label>
-            {authMode === 'register' ? (
-              <>
-                <label>
-                  Ime
-                  <input value={authForm.firstName} onChange={(e) => setAuthForm((p) => ({ ...p, firstName: e.target.value }))} required />
-                </label>
-                <label>
-                  Prezime
-                  <input value={authForm.lastName} onChange={(e) => setAuthForm((p) => ({ ...p, lastName: e.target.value }))} required />
-                </label>
-                <label>
-                  Uloga
-                  <select value={authForm.role} onChange={(e) => setAuthForm((p) => ({ ...p, role: e.target.value }))}>
-                    <option value="GUEST">GUEST</option>
-                    <option value="OWNER">OWNER</option>
-                  </select>
-                </label>
-                <label>
-                  Telefon
-                  <input value={authForm.phone} onChange={(e) => setAuthForm((p) => ({ ...p, phone: e.target.value }))} />
-                </label>
-              </>
-            ) : null}
-            <button type="submit">{authMode === 'login' ? 'Prijavi se' : 'Registriraj se'}</button>
-          </form>
-          <button className="ghost" onClick={() => setAuthMode((m) => (m === 'login' ? 'register' : 'login'))}>
-            {authMode === 'login' ? 'Nemate račun? Registracija' : 'Već imate račun? Prijava'}
-          </button>
+          <div className="row gap">
+            <NavLink to="/app/search" className={routeClassName}>Pretraga</NavLink>
+            <NavLink to="/app/profile" className={routeClassName}>Profil</NavLink>
+            <NavLink to="/app/reservations/new" className={routeClassName}>Nova rezervacija</NavLink>
+            <NavLink to="/app/reservations/my" className={routeClassName}>Moje rezervacije</NavLink>
+            <NavLink to="/app/messages" className={routeClassName}>Poruke</NavLink>
+            <NavLink to="/app/reviews" className={routeClassName}>Recenzije</NavLink>
+            <NavLink to="/app/notifications" className={routeClassName}>Obavijesti</NavLink>
+            {isOwner ? <NavLink to="/app/owner/apartments" className={routeClassName}>Owner panel</NavLink> : null}
+            {isAdmin ? <NavLink to="/app/admin/apartments" className={routeClassName}>Admin panel</NavLink> : null}
+          </div>
         </section>
-      ) : (
-        <>
-          <section className="card">
-            <div className="row between">
-              <h2>Korisnički profil ({user.role})</h2>
-              <button onClick={logout}>Odjava</button>
-            </div>
-            <form onSubmit={updateProfile} className="grid grid-2">
-              <label>Ime<input value={profileForm.firstName} onChange={(e) => setProfileForm((p) => ({ ...p, firstName: e.target.value }))} /></label>
-              <label>Prezime<input value={profileForm.lastName} onChange={(e) => setProfileForm((p) => ({ ...p, lastName: e.target.value }))} /></label>
-              <label>Telefon<input value={profileForm.phone} onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))} /></label>
-              <label>Avatar URL<input value={profileForm.avatarUrl} onChange={(e) => setProfileForm((p) => ({ ...p, avatarUrl: e.target.value }))} /></label>
-              <button type="submit">Spremi profil</button>
-            </form>
-          </section>
+      ) : null}
 
-          <section className="card">
-            <h2>Nova rezervacija</h2>
-            <form onSubmit={createReservation} className="grid grid-4">
-              <label>Apartment ID<input value={reservationForm.apartmentId} onChange={(e) => setReservationForm((p) => ({ ...p, apartmentId: e.target.value }))} required /></label>
-              <label>Check-in<input type="date" value={reservationForm.checkIn} onChange={(e) => setReservationForm((p) => ({ ...p, checkIn: e.target.value }))} required /></label>
-              <label>Check-out<input type="date" value={reservationForm.checkOut} onChange={(e) => setReservationForm((p) => ({ ...p, checkOut: e.target.value }))} required /></label>
-              <label>Broj gostiju<input type="number" min="1" value={reservationForm.numGuests} onChange={(e) => setReservationForm((p) => ({ ...p, numGuests: e.target.value }))} required /></label>
-              <button type="submit">Pošalji rezervaciju</button>
-              <button type="button" className="ghost" onClick={checkAvailability}>Provjeri dostupnost</button>
-            </form>
-          </section>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            user ? (
+              <Navigate to="/app/profile" replace />
+            ) : (
+              <PublicPage
+                search={search}
+                setSearch={setSearch}
+                loadApartments={loadApartments}
+                apartmentsResult={apartmentsResult}
+                authMode={authMode}
+                setAuthMode={setAuthMode}
+                authForm={authForm}
+                setAuthForm={setAuthForm}
+                submitAuth={submitAuth}
+              />
+            )
+          }
+        />
 
-          <section className="card">
-            <h2>Moje rezervacije (gost)</h2>
-            <div className="list">
-              {guestReservations.map((reservation) => (
-                <article key={reservation.id} className="list-item">
-                  <div className="row between">
-                    <h3>{reservation.apartment?.title || reservation.apartmentId}</h3>
-                    <span className={statusBadgeClass(reservation.status)}>{reservation.status}</span>
-                  </div>
-                  <p>{String(reservation.checkIn).slice(0, 10)} - {String(reservation.checkOut).slice(0, 10)}</p>
-                  <div className="row gap">
-                    <button type="button" onClick={() => updateReservationStatus(reservation.id, 'CANCELLED')}>Otkaži</button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
+        <Route path="/app/search" element={user ? (
+          <GuestSearchPage
+            search={search}
+            setSearch={setSearch}
+            loadApartments={loadApartments}
+            apartmentsResult={apartmentsResult}
+          />
+        ) : <Navigate to="/" replace />} />
 
-          <section className="card">
-            <h2>Poruke unutar rezervacije</h2>
-            <form onSubmit={loadMessages} className="grid grid-2">
-              <label>Reservation ID<input value={chatForm.reservationId} onChange={(e) => setChatForm((p) => ({ ...p, reservationId: e.target.value }))} required /></label>
-              <button type="submit">Učitaj chat</button>
-            </form>
-            <form onSubmit={sendMessage} className="grid grid-2">
-              <label>Nova poruka<input value={chatForm.content} onChange={(e) => setChatForm((p) => ({ ...p, content: e.target.value }))} required /></label>
-              <button type="submit">Pošalji poruku</button>
-            </form>
-            <div className="list compact">
-              {chatMessages.map((message) => (
-                <div key={message.id} className="list-item">
-                  <strong>{message.sender?.firstName} {message.sender?.lastName}:</strong> {message.content}
-                </div>
-              ))}
-            </div>
-          </section>
+        <Route path="/app/profile" element={user ? (
+          <ProfilePage
+            user={user}
+            profileForm={profileForm}
+            setProfileForm={setProfileForm}
+            updateProfile={updateProfile}
+            logout={logout}
+          />
+        ) : <Navigate to="/" replace />} />
 
-          <section className="card">
-            <h2>Recenzije</h2>
-            <form onSubmit={createReview} className="grid grid-3">
-              <label>Reservation ID<input value={reviewForm.reservationId} onChange={(e) => setReviewForm((p) => ({ ...p, reservationId: e.target.value }))} required /></label>
-              <label>Ocjena (1-5)<input type="number" min="1" max="5" value={reviewForm.rating} onChange={(e) => setReviewForm((p) => ({ ...p, rating: e.target.value }))} required /></label>
-              <label>Komentar<input value={reviewForm.comment} onChange={(e) => setReviewForm((p) => ({ ...p, comment: e.target.value }))} required /></label>
-              <button type="submit">Pošalji recenziju</button>
-            </form>
+        <Route path="/app/reservations/new" element={user ? (
+          <ReservationCreatePage
+            reservationForm={reservationForm}
+            setReservationForm={setReservationForm}
+            createReservation={createReservation}
+            checkAvailability={checkAvailability}
+          />
+        ) : <Navigate to="/" replace />} />
 
-            {isOwner ? (
-              <form onSubmit={replyToReview} className="grid grid-2">
-                <label>Review ID<input value={replyForm.reviewId} onChange={(e) => setReplyForm((p) => ({ ...p, reviewId: e.target.value }))} required /></label>
-                <label>Odgovor vlasnika<input value={replyForm.reply} onChange={(e) => setReplyForm((p) => ({ ...p, reply: e.target.value }))} required /></label>
-                <button type="submit">Odgovori na recenziju</button>
-              </form>
-            ) : null}
-          </section>
+        <Route path="/app/reservations/my" element={user ? (
+          <GuestReservationsPage
+            guestReservations={guestReservations}
+            statusBadgeClass={statusBadgeClass}
+            updateReservationStatus={updateReservationStatus}
+          />
+        ) : <Navigate to="/" replace />} />
 
-          <section className="card">
-            <div className="row between">
-              <h2>Obavijesti</h2>
-              <button onClick={markNotificationsRead}>Označi sve kao pročitano</button>
-            </div>
-            <div className="list compact">
-              {notifications.map((notification) => (
-                <div key={notification.id} className="list-item">
-                  <strong>{notification.type}</strong> — {notification.content}
-                </div>
-              ))}
-            </div>
-          </section>
+        <Route path="/app/messages" element={user ? (
+          <MessagesPage
+            chatForm={chatForm}
+            setChatForm={setChatForm}
+            loadMessages={loadMessages}
+            sendMessage={sendMessage}
+            chatMessages={chatMessages}
+          />
+        ) : <Navigate to="/" replace />} />
 
-          {isOwner ? (
-            <>
-              <section className="card">
-                <h2>Vlasnik: moji apartmani</h2>
-                <div className="list">
-                  {myApartments.map((apt) => (
-                    <article key={apt.id} className="list-item">
-                      <div className="row between">
-                        <h3>{apt.title}</h3>
-                        <span className={statusBadgeClass(apt.status)}>{apt.status}</span>
-                      </div>
-                      <p>{apt.city}, {apt.country}</p>
-                      <p>Rezervacije: {apt._count?.reservations || 0}</p>
-                    </article>
-                  ))}
-                </div>
-              </section>
+        <Route path="/app/reviews" element={user ? (
+          <ReviewsPage
+            reviewForm={reviewForm}
+            setReviewForm={setReviewForm}
+            createReview={createReview}
+            isOwner={isOwner}
+            replyForm={replyForm}
+            setReplyForm={setReplyForm}
+            replyToReview={replyToReview}
+          />
+        ) : <Navigate to="/" replace />} />
 
-              <section className="card">
-                <h2>Vlasnik: dodaj apartman</h2>
-                <form onSubmit={createApartment} className="grid grid-3">
-                  {Object.entries(newApartment).map(([key, value]) => (
-                    <label key={key}>
-                      {key}
-                      {key === 'cancellationPolicy' ? (
-                        <select value={value} onChange={(e) => setNewApartment((p) => ({ ...p, [key]: e.target.value }))}>
-                          <option value="FLEXIBLE">FLEXIBLE</option>
-                          <option value="MODERATE">MODERATE</option>
-                          <option value="STRICT">STRICT</option>
-                        </select>
-                      ) : (
-                        <input
-                          value={value}
-                          onChange={(e) => setNewApartment((p) => ({ ...p, [key]: e.target.value }))}
-                          required
-                        />
-                      )}
-                    </label>
-                  ))}
-                  <button type="submit">Kreiraj apartman</button>
-                </form>
-              </section>
+        <Route path="/app/notifications" element={user ? (
+          <NotificationsPage
+            notifications={notifications}
+            markNotificationsRead={markNotificationsRead}
+          />
+        ) : <Navigate to="/" replace />} />
 
-              <section className="card">
-                <h2>Vlasnik: upravljanje rezervacijama</h2>
-                <div className="list">
-                  {ownerReservations.map((reservation) => (
-                    <article key={reservation.id} className="list-item">
-                      <div className="row between">
-                        <h3>{reservation.apartment?.title}</h3>
-                        <span className={statusBadgeClass(reservation.status)}>{reservation.status}</span>
-                      </div>
-                      <p>Gost: {reservation.guest?.firstName} {reservation.guest?.lastName}</p>
-                      <div className="row gap">
-                        <button type="button" onClick={() => updateReservationStatus(reservation.id, 'CONFIRMED')}>Potvrdi</button>
-                        <button type="button" className="ghost" onClick={() => updateReservationStatus(reservation.id, 'REJECTED')}>Odbij</button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
+        <Route path="/app/owner/apartments" element={user && isOwner ? (
+          <OwnerApartmentsPage
+            myApartments={myApartments}
+            statusBadgeClass={statusBadgeClass}
+          />
+        ) : <Navigate to="/app/profile" replace />} />
 
-              <section className="card">
-                <h2>Vlasnik: analitika</h2>
-                {analytics ? (
-                  <div className="grid grid-2">
-                    <div className="list-item">
-                      <h3>Apartmani</h3>
-                      <p>{analytics.apartments.length}</p>
-                    </div>
-                    <div className="list-item">
-                      <h3>Mjesečni prihodi zapisa</h3>
-                      <p>{analytics.monthlyIncome.length}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <p>Nema podataka.</p>
-                )}
-              </section>
-            </>
-          ) : null}
+        <Route path="/app/owner/apartments/new" element={user && isOwner ? (
+          <OwnerApartmentCreatePage
+            newApartment={newApartment}
+            setNewApartment={setNewApartment}
+            createApartment={createApartment}
+          />
+        ) : <Navigate to="/app/profile" replace />} />
 
-          {isAdmin ? (
-            <>
-              <section className="card">
-                <h2>Admin: moderacija apartmana</h2>
-                <div className="list">
-                  {adminApartments.map((apt) => (
-                    <article key={apt.id} className="list-item">
-                      <div className="row between">
-                        <h3>{apt.title}</h3>
-                        <span className={statusBadgeClass(apt.status)}>{apt.status}</span>
-                      </div>
-                      <p>Vlasnik: {apt.owner?.firstName} {apt.owner?.lastName}</p>
-                      <div className="row gap">
-                        <button onClick={() => moderateApartment(apt.id, 'APPROVED')}>Odobri</button>
-                        <button className="ghost" onClick={() => moderateApartment(apt.id, 'REJECTED')}>Odbij</button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
+        <Route path="/app/owner/reservations" element={user && isOwner ? (
+          <OwnerReservationsPage
+            ownerReservations={ownerReservations}
+            statusBadgeClass={statusBadgeClass}
+            updateReservationStatus={updateReservationStatus}
+          />
+        ) : <Navigate to="/app/profile" replace />} />
 
-              <section className="card">
-                <h2>Admin: korisnici</h2>
-                <div className="list">
-                  {adminUsers.map((u) => (
-                    <article key={u.id} className="list-item row between">
-                      <div>
-                        <strong>{u.firstName} {u.lastName}</strong>
-                        <p>{u.email} • {u.role}</p>
-                      </div>
-                      <button className="ghost" onClick={() => deleteUser(u.id)}>Obriši korisnika</button>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </>
-          ) : null}
-        </>
-      )}
+        <Route path="/app/owner/analytics" element={user && isOwner ? (
+          <OwnerAnalyticsPage analytics={analytics} />
+        ) : <Navigate to="/app/profile" replace />} />
+
+        <Route path="/app/admin/apartments" element={user && isAdmin ? (
+          <AdminApartmentsPage
+            adminApartments={adminApartments}
+            statusBadgeClass={statusBadgeClass}
+            moderateApartment={moderateApartment}
+          />
+        ) : <Navigate to="/app/profile" replace />} />
+
+        <Route path="/app/admin/users" element={user && isAdmin ? (
+          <AdminUsersPage
+            adminUsers={adminUsers}
+            deleteUser={deleteUser}
+          />
+        ) : <Navigate to="/app/profile" replace />} />
+
+        <Route path="*" element={<Navigate to={user ? '/app/profile' : '/'} replace />} />
+      </Routes>
     </main>
   );
 }
