@@ -77,7 +77,7 @@ router.post('/', authenticate, async (req, res, next) => {
         data: {
           userId:  recipientId,
           type:    'MESSAGE_NEW',
-          content: `Nova poruka od ${msg.sender.firstName} ${msg.sender.lastName}`,
+          content: `Nova poruka od ${msg.sender.firstName} ${msg.sender.lastName} [reservation:${reservationId}]`,
         },
       });
 

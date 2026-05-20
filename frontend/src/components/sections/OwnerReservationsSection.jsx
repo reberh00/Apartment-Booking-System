@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function OwnerReservationsSection({ ownerReservations, statusBadgeClass, updateReservationStatus }) {
   return (
     <section className="card">
@@ -11,6 +13,7 @@ export default function OwnerReservationsSection({ ownerReservations, statusBadg
             </div>
             <p>Gost: {reservation.guest?.firstName} {reservation.guest?.lastName}</p>
             <div className="row gap">
+              <Link to={`/app/owner/reservations/${reservation.id}`} className="badge badge-neutral">Detalji i chat</Link>
               <button type="button" onClick={() => updateReservationStatus(reservation.id, 'CONFIRMED')}>Potvrdi</button>
               <button type="button" className="ghost" onClick={() => updateReservationStatus(reservation.id, 'REJECTED')}>Odbij</button>
             </div>

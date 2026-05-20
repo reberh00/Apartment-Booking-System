@@ -15,6 +15,7 @@ import OwnerApartmentsPage from './pages/routes/OwnerApartmentsPage';
 import OwnerApartmentCreatePage from './pages/routes/OwnerApartmentCreatePage';
 import OwnerApartmentDetailsPage from './pages/routes/OwnerApartmentDetailsPage';
 import OwnerReservationsPage from './pages/routes/OwnerReservationsPage';
+import OwnerReservationDetailsPage from './pages/routes/OwnerReservationDetailsPage';
 import OwnerAnalyticsPage from './pages/routes/OwnerAnalyticsPage';
 import AdminApartmentsPage from './pages/routes/AdminApartmentsPage';
 import AdminUsersPage from './pages/routes/AdminUsersPage';
@@ -418,6 +419,7 @@ export default function App() {
             <NavLink to="/app/reviews" className={routeClassName}>Recenzije</NavLink>
             <NavLink to="/app/notifications" className={routeClassName}>Obavijesti</NavLink>
             {isOwner ? <NavLink to="/app/owner/apartments" className={routeClassName}>Owner panel</NavLink> : null}
+            {isOwner ? <NavLink to="/app/owner/reservations" className={routeClassName}>Owner rezervacije</NavLink> : null}
             {isAdmin ? <NavLink to="/app/admin/apartments" className={routeClassName}>Admin panel</NavLink> : null}
           </div>
         </section>
@@ -516,6 +518,7 @@ export default function App() {
           <NotificationsPage
             notifications={notifications}
             markNotificationsRead={markNotificationsRead}
+            isOwner={isOwner}
           />
         ) : <Navigate to="/" replace />} />
 
@@ -546,6 +549,15 @@ export default function App() {
         <Route path="/app/owner/reservations" element={user && isOwner ? (
           <OwnerReservationsPage
             ownerReservations={ownerReservations}
+            statusBadgeClass={statusBadgeClass}
+            updateReservationStatus={updateReservationStatus}
+          />
+        ) : <Navigate to="/app/profile" replace />} />
+
+        <Route path="/app/owner/reservations/:reservationId" element={user && isOwner ? (
+          <OwnerReservationDetailsPage
+            token={token}
+            setFeedback={setFeedback}
             statusBadgeClass={statusBadgeClass}
             updateReservationStatus={updateReservationStatus}
           />
