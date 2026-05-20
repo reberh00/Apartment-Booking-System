@@ -203,6 +203,39 @@ router.get('/owner', authenticate, authorize('OWNER'), async (req, res, next) =>
   }
 });
 
+router.get('/:id([0-9a-fA-F-]{36})', authenticate, async (req, res, next) => {
+  try {
+    const reservation = await prisma.reservation.findUnique({
+      where: { id: req.params.id },
+      include: {
+        apartment: {
+          include: {
+            owner: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+          },
+        },
+        guest: { select: { id: true, firstName: true, lastName: true, email: true } },
+        review: { select: { id: true, rating: true, comment: true } },
+      },
+    });
+
+    if (!reservation) {
+      return next(createError('Rezervacija nije pronađena', 404));
+    }
+
+    const isOwner = reservation.apartment?.ownerId === req.user.id;
+    const isGuest = reservation.guestId === req.user.id;
+    const isAdmin = req.user.role === 'ADMIN';
+
+    if (!isOwner && !isGuest && !isAdmin) {
+      return next(createError('Nemate ovlasti', 403));
+    }
+
+    res.json(reservation);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/', authenticate, async (req, res, next) => {
   try {
     const data = reservationSchema.parse(req.body);

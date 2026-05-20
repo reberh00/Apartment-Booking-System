@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function GuestReservationsSection({ guestReservations, statusBadgeClass, updateReservationStatus }) {
   return (
     <section className="card">
@@ -11,6 +13,7 @@ export default function GuestReservationsSection({ guestReservations, statusBadg
             </div>
             <p>{String(reservation.checkIn).slice(0, 10)} - {String(reservation.checkOut).slice(0, 10)}</p>
             <div className="row gap">
+              <Link to={`/app/reservations/${reservation.id}`} className="badge badge-neutral">Detalji</Link>
               <button type="button" onClick={() => updateReservationStatus(reservation.id, 'CANCELLED')}>Otkaži</button>
             </div>
           </article>

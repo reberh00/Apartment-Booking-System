@@ -7,6 +7,7 @@ import GuestSearchPage from './pages/routes/GuestSearchPage';
 import ProfilePage from './pages/routes/ProfilePage';
 import ReservationCreatePage from './pages/routes/ReservationCreatePage';
 import GuestReservationsPage from './pages/routes/GuestReservationsPage';
+import GuestReservationDetailsPage from './pages/routes/GuestReservationDetailsPage';
 import MessagesPage from './pages/routes/MessagesPage';
 import ReviewsPage from './pages/routes/ReviewsPage';
 import NotificationsPage from './pages/routes/NotificationsPage';
@@ -273,6 +274,7 @@ export default function App() {
       await Promise.all([loadGuestReservations(), isOwner ? loadOwnerReservations() : Promise.resolve()]);
     } catch (err) {
       setFeedback(err.message, true);
+      throw err;
     }
   }
 
@@ -474,6 +476,15 @@ export default function App() {
         <Route path="/app/reservations/my" element={user ? (
           <GuestReservationsPage
             guestReservations={guestReservations}
+            statusBadgeClass={statusBadgeClass}
+            updateReservationStatus={updateReservationStatus}
+          />
+        ) : <Navigate to="/" replace />} />
+
+        <Route path="/app/reservations/:reservationId" element={user ? (
+          <GuestReservationDetailsPage
+            token={token}
+            setFeedback={setFeedback}
             statusBadgeClass={statusBadgeClass}
             updateReservationStatus={updateReservationStatus}
           />
