@@ -12,6 +12,7 @@ import ReviewsPage from './pages/routes/ReviewsPage';
 import NotificationsPage from './pages/routes/NotificationsPage';
 import OwnerApartmentsPage from './pages/routes/OwnerApartmentsPage';
 import OwnerApartmentCreatePage from './pages/routes/OwnerApartmentCreatePage';
+import OwnerApartmentDetailsPage from './pages/routes/OwnerApartmentDetailsPage';
 import OwnerReservationsPage from './pages/routes/OwnerReservationsPage';
 import OwnerAnalyticsPage from './pages/routes/OwnerAnalyticsPage';
 import AdminApartmentsPage from './pages/routes/AdminApartmentsPage';
@@ -42,6 +43,7 @@ export default function App() {
   const [ownerReservations, setOwnerReservations] = useState([]);
   const [myApartments, setMyApartments] = useState([]);
   const [newApartment, setNewApartment] = useState(defaultApartmentForm);
+  const [contentsOptions, setContentsOptions] = useState([]);
   const [analytics, setAnalytics] = useState(null);
 
   const [notifications, setNotifications] = useState([]);
@@ -66,6 +68,7 @@ export default function App() {
 
   useEffect(() => {
     void loadApartments();
+    void loadContents();
   }, []);
 
   useEffect(() => {
@@ -108,6 +111,15 @@ export default function App() {
 
       const data = await api.get(`/apartments?${params.toString()}`);
       setApartmentsResult(data);
+    } catch (err) {
+      setFeedback(err.message, true);
+    }
+  }
+
+  async function loadContents() {
+    try {
+      const data = await api.get('/contents');
+      setContentsOptions(data);
     } catch (err) {
       setFeedback(err.message, true);
     }
@@ -280,6 +292,17 @@ export default function App() {
       await loadMyApartments();
     } catch (err) {
       setFeedback(err.message, true);
+    }
+  }
+
+  async function updateApartment(id, payload) {
+    try {
+      await api.put(`/apartments/${id}`, payload, token);
+      setFeedback('Detalji apartmana su spremljeni.');
+      await Promise.all([loadMyApartments(), loadApartments()]);
+    } catch (err) {
+      setFeedback(err.message, true);
+      throw err;
     }
   }
 
@@ -497,6 +520,15 @@ export default function App() {
             newApartment={newApartment}
             setNewApartment={setNewApartment}
             createApartment={createApartment}
+            contentsOptions={contentsOptions}
+          />
+        ) : <Navigate to="/app/profile" replace />} />
+
+        <Route path="/app/owner/apartments/:apartmentId" element={user && isOwner ? (
+          <OwnerApartmentDetailsPage
+            setFeedback={setFeedback}
+            updateApartment={updateApartment}
+            contentsOptions={contentsOptions}
           />
         ) : <Navigate to="/app/profile" replace />} />
 

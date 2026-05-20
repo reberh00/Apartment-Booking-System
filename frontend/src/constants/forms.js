@@ -19,4 +19,5 @@ export const defaultApartmentForm = {
   maxGuests: 2,
   minNights: 1,
   cancellationPolicy: 'FLEXIBLE',
+  contentIds: [],
 };

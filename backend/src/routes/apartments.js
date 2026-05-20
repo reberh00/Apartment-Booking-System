@@ -133,6 +133,7 @@ router.get('/owner/mine', authenticate, authorize('OWNER'), async (req, res, nex
       where: { ownerId: req.user.id },
       include: {
         reviews:  { select: { rating: true } },
+        contents: { include: { content: true } },
         _count:   { select: { reservations: true } },
       },
       orderBy: { createdAt: 'desc' },
