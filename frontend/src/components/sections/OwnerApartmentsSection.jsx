@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 export default function OwnerApartmentsSection({ myApartments, statusBadgeClass }) {
   return (
     <section className="card">
-      <h2>Vlasnik: moji apartmani</h2>
+      <div className="row between">
+        <h2>Vlasnik: moji apartmani</h2>
+        <Link to="/app/owner/apartments/new" className="badge badge-ok">Dodaj novi apartman</Link>
+      </div>
       <div className="list">
         {myApartments.map((apt) => (
           <article key={apt.id} className="list-item">
