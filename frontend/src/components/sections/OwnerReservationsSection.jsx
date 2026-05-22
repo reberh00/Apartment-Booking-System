@@ -1,6 +1,21 @@
 import { Link } from 'react-router-dom';
 
 export default function OwnerReservationsSection({ ownerReservations, statusBadgeClass, updateReservationStatus }) {
+  function formatDate(date) {
+    const parsed = new Date(date);
+    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const year = parsed.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  function getStayNights(checkIn, checkOut) {
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    const msPerDay = 1000 * 60 * 60 * 24;
+    return Math.max(0, Math.round((end - start) / msPerDay));
+  }
+
   return (
     <section className="card">
       <h2>Vlasnik: upravljanje rezervacijama</h2>
@@ -12,6 +27,8 @@ export default function OwnerReservationsSection({ ownerReservations, statusBadg
               <span className={statusBadgeClass(reservation.status)}>{reservation.status}</span>
             </div>
             <p>Gost: {reservation.guest?.firstName} {reservation.guest?.lastName}</p>
+            <p>Boravak: {formatDate(reservation.checkIn)} - {formatDate(reservation.checkOut)}</p>
+            <p>Trajanje: {getStayNights(reservation.checkIn, reservation.checkOut)} noći</p>
             <div className="row gap">
               <Link to={`/app/owner/reservations/${reservation.id}`} className="badge badge-neutral">Detalji i chat</Link>
               <button type="button" onClick={() => updateReservationStatus(reservation.id, 'CONFIRMED')}>Potvrdi</button>
