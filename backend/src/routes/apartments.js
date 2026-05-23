@@ -98,6 +98,7 @@ router.get('/', async (req, res, next) => {
         skip,
         take: parseInt(limit),
         include: {
+          owner: { select: { id: true, firstName: true, lastName: true } },
           reviews:  { select: { rating: true } },
           contents: { include: { content: true } },
         },

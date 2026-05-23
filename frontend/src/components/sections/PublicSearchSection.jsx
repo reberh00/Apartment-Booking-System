@@ -21,6 +21,7 @@ export default function PublicSearchSection({ search, setSearch, loadApartments,
           <article key={apt.id} className="list-item">
             <h3>{apt.title}</h3>
             <p>{apt.city}, {apt.country}</p>
+            <p>Vlasnik: {apt.owner ? `${apt.owner.firstName} ${apt.owner.lastName}` : 'Nepoznato'}</p>
             <p>{apt.pricePerNight} EUR / noć • max {apt.maxGuests} gostiju</p>
             <p>ID: <code>{apt.id}</code></p>
           </article>
