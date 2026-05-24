@@ -174,7 +174,7 @@ router.get('/my', authenticate, async (req, res, next) => {
 
 router.get('/owner', authenticate, authorize('OWNER'), async (req, res, next) => {
   try {
-    const { status, apartmentId } = req.query;
+    const { status, apartmentId, checkIn, checkOut } = req.query;
     const where = {
       apartment: { ownerId: req.user.id },
     };
@@ -185,6 +185,19 @@ router.get('/owner', authenticate, authorize('OWNER'), async (req, res, next) =>
 
     if (apartmentId) {
       where.apartmentId = apartmentId;
+    }
+
+    if (checkIn && checkOut) {
+      const ci = new Date(checkIn);
+      const co = new Date(checkOut);
+      where.checkIn = { lt: co };
+      where.checkOut = { gt: ci };
+    } else if (checkIn) {
+      const ci = new Date(checkIn);
+      where.checkOut = { gt: ci };
+    } else if (checkOut) {
+      const co = new Date(checkOut);
+      where.checkIn = { lt: co };
     }
 
     const reservations = await prisma.reservation.findMany({

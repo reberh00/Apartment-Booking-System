@@ -43,6 +43,7 @@ export default function App() {
   const [reservationForm, setReservationForm] = useState({ apartmentId: '', checkIn: '', checkOut: '', numGuests: 1 });
   const [guestReservations, setGuestReservations] = useState([]);
   const [ownerReservations, setOwnerReservations] = useState([]);
+  const [ownerReservationFilters, setOwnerReservationFilters] = useState({ status: '', checkIn: '', checkOut: '' });
   const [myApartments, setMyApartments] = useState([]);
   const [newApartment, setNewApartment] = useState(defaultApartmentForm);
   const [contentsOptions, setContentsOptions] = useState([]);
@@ -154,7 +155,12 @@ export default function App() {
 
   async function loadOwnerReservations() {
     try {
-      const data = await api.get('/reservations/owner', token);
+      const params = new URLSearchParams();
+      Object.entries(ownerReservationFilters).forEach(([key, value]) => {
+        if (value) params.set(key, value);
+      });
+      const query = params.toString();
+      const data = await api.get(`/reservations/owner${query ? `?${query}` : ''}`, token);
       setOwnerReservations(data);
     } catch (err) {
       setFeedback(err.message, true);
@@ -551,6 +557,9 @@ export default function App() {
             ownerReservations={ownerReservations}
             statusBadgeClass={statusBadgeClass}
             updateReservationStatus={updateReservationStatus}
+            ownerReservationFilters={ownerReservationFilters}
+            setOwnerReservationFilters={setOwnerReservationFilters}
+            loadOwnerReservations={loadOwnerReservations}
           />
         ) : <Navigate to="/app/profile" replace />} />
 

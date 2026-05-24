@@ -1,6 +1,13 @@
 import { Link } from 'react-router-dom';
 
-export default function OwnerReservationsSection({ ownerReservations, statusBadgeClass, updateReservationStatus }) {
+export default function OwnerReservationsSection({
+  ownerReservations,
+  statusBadgeClass,
+  updateReservationStatus,
+  ownerReservationFilters,
+  setOwnerReservationFilters,
+  loadOwnerReservations,
+}) {
   function formatDate(date) {
     const parsed = new Date(date);
     const day = String(parsed.getDate()).padStart(2, '0');
@@ -19,6 +26,50 @@ export default function OwnerReservationsSection({ ownerReservations, statusBadg
   return (
     <section className="card">
       <h2>Vlasnik: upravljanje rezervacijama</h2>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void loadOwnerReservations();
+        }}
+        className="grid grid-3"
+      >
+        <label>
+          Status
+          <select
+            value={ownerReservationFilters.status}
+            onChange={(e) => setOwnerReservationFilters((prev) => ({ ...prev, status: e.target.value }))}
+          >
+            <option value="">Svi</option>
+            <option value="PENDING">PENDING</option>
+            <option value="CONFIRMED">CONFIRMED</option>
+            <option value="REJECTED">REJECTED</option>
+            <option value="CANCELLED">CANCELLED</option>
+            <option value="COMPLETED">COMPLETED</option>
+          </select>
+        </label>
+
+        <label>
+          Od datuma
+          <input
+            type="date"
+            value={ownerReservationFilters.checkIn}
+            onChange={(e) => setOwnerReservationFilters((prev) => ({ ...prev, checkIn: e.target.value }))}
+          />
+        </label>
+
+        <label>
+          Do datuma
+          <input
+            type="date"
+            value={ownerReservationFilters.checkOut}
+            onChange={(e) => setOwnerReservationFilters((prev) => ({ ...prev, checkOut: e.target.value }))}
+          />
+        </label>
+
+        <button type="submit">Filtriraj</button>
+      </form>
+
       <div className="list">
         {ownerReservations.map((reservation) => (
           <article key={reservation.id} className="list-item">
