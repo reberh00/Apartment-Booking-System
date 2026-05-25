@@ -400,6 +400,7 @@ export default function App() {
             {isOwner ? <NavLink to="/app/owner/apartments" className={routeClassName}>Owner panel</NavLink> : null}
             {isOwner ? <NavLink to="/app/owner/reservations" className={routeClassName}>Owner rezervacije</NavLink> : null}
             {isAdmin ? <NavLink to="/app/admin/apartments" className={routeClassName}>Admin panel</NavLink> : null}
+            {isAdmin ? <NavLink to="/app/admin/users" className={routeClassName}>Admin korisnici</NavLink> : null}
           </div>
         </section>
       ) : null}
@@ -573,6 +574,7 @@ export default function App() {
           <AdminUsersPage
             adminUsers={adminUsers}
             deleteUser={deleteUser}
+            currentUserId={user.id}
           />
         ) : <Navigate to="/app/profile" replace />} />
 
