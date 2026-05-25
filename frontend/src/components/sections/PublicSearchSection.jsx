@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function PublicSearchSection({ search, setSearch, loadApartments, apartmentsResult }) {
   return (
     <section className="card">
@@ -18,13 +20,13 @@ export default function PublicSearchSection({ search, setSearch, loadApartments,
       <p className="meta">Rezultata: {apartmentsResult.total}</p>
       <div className="list">
         {apartmentsResult.apartments.map((apt) => (
-          <article key={apt.id} className="list-item">
+          <Link key={apt.id} to={`/apartments/${apt.id}`} className="list-item card-link-reset">
             <h3>{apt.title}</h3>
             <p>{apt.city}, {apt.country}</p>
             <p>Vlasnik: {apt.owner ? `${apt.owner.firstName} ${apt.owner.lastName}` : 'Nepoznato'}</p>
             <p>{apt.pricePerNight} EUR / noć • max {apt.maxGuests} gostiju</p>
             <p>ID: <code>{apt.id}</code></p>
-          </article>
+          </Link>
         ))}
       </div>
     </section>

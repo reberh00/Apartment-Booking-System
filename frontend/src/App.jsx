@@ -5,7 +5,7 @@ import { defaultApartmentForm, defaultSearch } from './constants/forms';
 import PublicPage from './pages/PublicPage';
 import GuestSearchPage from './pages/routes/GuestSearchPage';
 import ProfilePage from './pages/routes/ProfilePage';
-import ReservationCreatePage from './pages/routes/ReservationCreatePage';
+import ApartmentDetailsPage from './pages/routes/ApartmentDetailsPage';
 import GuestReservationsPage from './pages/routes/GuestReservationsPage';
 import GuestReservationDetailsPage from './pages/routes/GuestReservationDetailsPage';
 import MessagesPage from './pages/routes/MessagesPage';
@@ -13,7 +13,6 @@ import ReviewsPage from './pages/routes/ReviewsPage';
 import NotificationsPage from './pages/routes/NotificationsPage';
 import OwnerApartmentsPage from './pages/routes/OwnerApartmentsPage';
 import OwnerApartmentCreatePage from './pages/routes/OwnerApartmentCreatePage';
-import OwnerApartmentDetailsPage from './pages/routes/OwnerApartmentDetailsPage';
 import OwnerReservationsPage from './pages/routes/OwnerReservationsPage';
 import OwnerReservationDetailsPage from './pages/routes/OwnerReservationDetailsPage';
 import OwnerAnalyticsPage from './pages/routes/OwnerAnalyticsPage';
@@ -40,7 +39,6 @@ export default function App() {
 
   const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', phone: '', avatarUrl: '' });
 
-  const [reservationForm, setReservationForm] = useState({ apartmentId: '', checkIn: '', checkOut: '', numGuests: 1 });
   const [guestReservations, setGuestReservations] = useState([]);
   const [ownerReservations, setOwnerReservations] = useState([]);
   const [ownerReservationFilters, setOwnerReservationFilters] = useState({ status: '', checkIn: '', checkOut: '' });
@@ -241,36 +239,39 @@ export default function App() {
     }
   }
 
-  async function createReservation(e) {
-    e.preventDefault();
+  async function createReservationForApartment(apartmentId, payload) {
     try {
       await api.post('/reservations', {
-        ...reservationForm,
-        numGuests: Number(reservationForm.numGuests),
+        apartmentId,
+        checkIn: payload.checkIn,
+        checkOut: payload.checkOut,
+        numGuests: Number(payload.numGuests),
       }, token);
       setFeedback('Rezervacija je poslana vlasniku.');
       await loadGuestReservations();
       await loadApartments();
     } catch (err) {
       setFeedback(err.message, true);
+      throw err;
     }
   }
 
-  async function checkAvailability() {
+  async function checkApartmentAvailability(apartmentId, checkIn, checkOut) {
     try {
-      if (!reservationForm.apartmentId || !reservationForm.checkIn || !reservationForm.checkOut) {
-        setFeedback('Upišite apartmentId, check-in i check-out.', true);
+      if (!apartmentId || !checkIn || !checkOut) {
+        setFeedback('Upišite check-in i check-out.', true);
         return;
       }
       const params = new URLSearchParams({
-        apartmentId: reservationForm.apartmentId,
-        checkIn: reservationForm.checkIn,
-        checkOut: reservationForm.checkOut,
+        apartmentId,
+        checkIn,
+        checkOut,
       });
       const data = await api.get(`/reservations/check-availability?${params.toString()}`);
       setFeedback(data.available ? 'Termin je slobodan.' : 'Termin nije slobodan.', !data.available);
     } catch (err) {
       setFeedback(err.message, true);
+      throw err;
     }
   }
 
@@ -419,7 +420,6 @@ export default function App() {
           <div className="row gap">
             <NavLink to="/app/search" className={routeClassName}>Pretraga</NavLink>
             <NavLink to="/app/profile" className={routeClassName}>Profil</NavLink>
-            <NavLink to="/app/reservations/new" className={routeClassName}>Nova rezervacija</NavLink>
             <NavLink to="/app/reservations/my" className={routeClassName}>Moje rezervacije</NavLink>
             <NavLink to="/app/messages" className={routeClassName}>Poruke</NavLink>
             <NavLink to="/app/reviews" className={routeClassName}>Recenzije</NavLink>
@@ -462,6 +462,32 @@ export default function App() {
           />
         ) : <Navigate to="/" replace />} />
 
+        <Route path="/apartments/:apartmentId" element={(
+          <ApartmentDetailsPage
+            user={user}
+            token={token}
+            setFeedback={setFeedback}
+            updateApartment={updateApartment}
+            contentsOptions={contentsOptions}
+            createReservationForApartment={createReservationForApartment}
+            checkApartmentAvailability={checkApartmentAvailability}
+            defaultBackPath={user ? '/app/search' : '/'}
+          />
+        )} />
+
+        <Route path="/app/apartments/:apartmentId" element={user ? (
+          <ApartmentDetailsPage
+            user={user}
+            token={token}
+            setFeedback={setFeedback}
+            updateApartment={updateApartment}
+            contentsOptions={contentsOptions}
+            createReservationForApartment={createReservationForApartment}
+            checkApartmentAvailability={checkApartmentAvailability}
+            defaultBackPath="/app/search"
+          />
+        ) : <Navigate to="/" replace />} />
+
         <Route path="/app/profile" element={user ? (
           <ProfilePage
             user={user}
@@ -469,15 +495,6 @@ export default function App() {
             setProfileForm={setProfileForm}
             updateProfile={updateProfile}
             logout={logout}
-          />
-        ) : <Navigate to="/" replace />} />
-
-        <Route path="/app/reservations/new" element={user ? (
-          <ReservationCreatePage
-            reservationForm={reservationForm}
-            setReservationForm={setReservationForm}
-            createReservation={createReservation}
-            checkAvailability={checkAvailability}
           />
         ) : <Navigate to="/" replace />} />
 
@@ -545,10 +562,15 @@ export default function App() {
         ) : <Navigate to="/app/profile" replace />} />
 
         <Route path="/app/owner/apartments/:apartmentId" element={user && isOwner ? (
-          <OwnerApartmentDetailsPage
+          <ApartmentDetailsPage
+            user={user}
+            token={token}
             setFeedback={setFeedback}
             updateApartment={updateApartment}
             contentsOptions={contentsOptions}
+            createReservationForApartment={createReservationForApartment}
+            checkApartmentAvailability={checkApartmentAvailability}
+            defaultBackPath="/app/owner/apartments"
           />
         ) : <Navigate to="/app/profile" replace />} />
 

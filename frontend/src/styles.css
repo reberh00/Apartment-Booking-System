@@ -130,6 +130,19 @@ button:hover {
   background: #fff;
 }
 
+.card-link-reset {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+}
+
+.card-link-reset:visited,
+.card-link-reset:hover,
+.card-link-reset:active {
+  color: inherit;
+  text-decoration: none;
+}
+
 .meta {
   color: #475569;
 }
