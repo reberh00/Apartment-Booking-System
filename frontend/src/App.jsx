@@ -8,7 +8,6 @@ import ProfilePage from './pages/routes/ProfilePage';
 import ApartmentDetailsPage from './pages/routes/ApartmentDetailsPage';
 import GuestReservationsPage from './pages/routes/GuestReservationsPage';
 import GuestReservationDetailsPage from './pages/routes/GuestReservationDetailsPage';
-import MessagesPage from './pages/routes/MessagesPage';
 import ReviewsPage from './pages/routes/ReviewsPage';
 import NotificationsPage from './pages/routes/NotificationsPage';
 import OwnerApartmentsPage from './pages/routes/OwnerApartmentsPage';
@@ -48,8 +47,6 @@ export default function App() {
   const [analytics, setAnalytics] = useState(null);
 
   const [notifications, setNotifications] = useState([]);
-  const [chatForm, setChatForm] = useState({ reservationId: '', content: '' });
-  const [chatMessages, setChatMessages] = useState([]);
   const [reviewForm, setReviewForm] = useState({ reservationId: '', rating: 5, comment: '' });
   const [replyForm, setReplyForm] = useState({ reviewId: '', reply: '' });
 
@@ -346,29 +343,6 @@ export default function App() {
     }
   }
 
-  async function loadMessages(e) {
-    e.preventDefault();
-    try {
-      const data = await api.get(`/messages/${chatForm.reservationId}`, token);
-      setChatMessages(data);
-    } catch (err) {
-      setFeedback(err.message, true);
-    }
-  }
-
-  async function sendMessage(e) {
-    e.preventDefault();
-    try {
-      await api.post('/messages', chatForm, token);
-      setFeedback('Poruka je poslana.');
-      const data = await api.get(`/messages/${chatForm.reservationId}`, token);
-      setChatMessages(data);
-      setChatForm((prev) => ({ ...prev, content: '' }));
-    } catch (err) {
-      setFeedback(err.message, true);
-    }
-  }
-
   async function createReview(e) {
     e.preventDefault();
     try {
@@ -421,7 +395,6 @@ export default function App() {
             <NavLink to="/app/search" className={routeClassName}>Pretraga</NavLink>
             <NavLink to="/app/profile" className={routeClassName}>Profil</NavLink>
             <NavLink to="/app/reservations/my" className={routeClassName}>Moje rezervacije</NavLink>
-            <NavLink to="/app/messages" className={routeClassName}>Poruke</NavLink>
             <NavLink to="/app/reviews" className={routeClassName}>Recenzije</NavLink>
             <NavLink to="/app/notifications" className={routeClassName}>Obavijesti</NavLink>
             {isOwner ? <NavLink to="/app/owner/apartments" className={routeClassName}>Owner panel</NavLink> : null}
@@ -512,16 +485,6 @@ export default function App() {
             setFeedback={setFeedback}
             statusBadgeClass={statusBadgeClass}
             updateReservationStatus={updateReservationStatus}
-          />
-        ) : <Navigate to="/" replace />} />
-
-        <Route path="/app/messages" element={user ? (
-          <MessagesPage
-            chatForm={chatForm}
-            setChatForm={setChatForm}
-            loadMessages={loadMessages}
-            sendMessage={sendMessage}
-            chatMessages={chatMessages}
           />
         ) : <Navigate to="/" replace />} />
 
