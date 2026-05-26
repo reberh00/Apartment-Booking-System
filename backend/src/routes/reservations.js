@@ -243,7 +243,7 @@ router.get('/:id([0-9a-fA-F-]{36})', authenticate, async (req, res, next) => {
           },
         },
         guest: { select: { id: true, firstName: true, lastName: true, email: true } },
-        review: { select: { id: true, rating: true, comment: true } },
+        review: { select: { id: true, rating: true, comment: true, ownerReply: true } },
       },
     });
 

@@ -11,6 +11,8 @@ export default function OwnerReservationDetailsPage({ token, setFeedback, status
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [replyForm, setReplyForm] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -24,6 +26,7 @@ export default function OwnerReservationDetailsPage({ token, setFeedback, status
         ]);
         if (ignore) return;
         setReservation(reservationData);
+        setReplyForm(reservationData.review?.ownerReply || '');
         setMessages(messageData);
       } catch (err) {
         if (!ignore) {
@@ -71,6 +74,33 @@ export default function OwnerReservationDetailsPage({ token, setFeedback, status
       setFeedback(err.message, true);
     } finally {
       setSendingMessage(false);
+    }
+  }
+
+  async function submitOwnerReply(e) {
+    e.preventDefault();
+    if (!reservation?.review?.id) return;
+
+    try {
+      setSubmittingReply(true);
+      const updatedReview = await api.patch(`/reviews/${reservation.review.id}/reply`, {
+        reply: replyForm.trim(),
+      }, token);
+
+      setReservation((prev) => (prev ? {
+        ...prev,
+        review: {
+          ...prev.review,
+          ownerReply: updatedReview.ownerReply,
+        },
+      } : prev));
+
+      setReplyForm(updatedReview.ownerReply || '');
+      setFeedback('Odgovor na recenziju je spremljen.');
+    } catch (err) {
+      setFeedback(err.message, true);
+    } finally {
+      setSubmittingReply(false);
     }
   }
 
@@ -129,6 +159,35 @@ export default function OwnerReservationDetailsPage({ token, setFeedback, status
           Odbij
         </button>
       </div>
+
+      {reservation.review ? (
+        <section className="card">
+          <h3>Recenzija gosta</h3>
+          <div className="list compact">
+            <article className="list-item">
+              <p><strong>Ocjena:</strong> {reservation.review.rating}/5</p>
+              <p><strong>Komentar:</strong> {reservation.review.comment}</p>
+              {reservation.review.ownerReply ? <p><strong>Vaš odgovor:</strong> {reservation.review.ownerReply}</p> : null}
+            </article>
+          </div>
+
+          <form onSubmit={submitOwnerReply} className="grid grid-2">
+            <label>
+              Odgovor vlasnika
+              <input
+                value={replyForm}
+                onChange={(e) => setReplyForm(e.target.value)}
+                minLength={5}
+                maxLength={500}
+                required
+              />
+            </label>
+            <button type="submit" disabled={submittingReply}>
+              {submittingReply ? 'Spremanje...' : reservation.review.ownerReply ? 'Ažuriraj odgovor' : 'Pošalji odgovor'}
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       <section className="card">
         <h3>Chat s gostom</h3>

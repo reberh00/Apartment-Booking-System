@@ -16,7 +16,10 @@ router.post('/', authenticate, async (req, res, next) => {
 
     const reservation = await prisma.reservation.findUnique({
       where: { id: data.reservationId },
-      include: { review: true },
+      include: {
+        review: true,
+        apartment: { select: { ownerId: true, title: true } },
+      },
     });
 
     if (!reservation) {
@@ -35,15 +38,27 @@ router.post('/', authenticate, async (req, res, next) => {
       return next(createError('Već ste ostavili recenziju za ovaj apartman'));
     }
 
-    const review = await prisma.review.create({
-      data: {
-        reservationId: data.reservationId,
-        apartmentId:   reservation.apartmentId,
-        guestId:       req.user.id,
-        rating:        data.rating,
-        comment:       data.comment,
-      },
-      include: { guest: { select: { firstName: true, lastName: true, avatarUrl: true } } },
+    const review = await prisma.$transaction(async (tx) => {
+      const createdReview = await tx.review.create({
+        data: {
+          reservationId: data.reservationId,
+          apartmentId:   reservation.apartmentId,
+          guestId:       req.user.id,
+          rating:        data.rating,
+          comment:       data.comment,
+        },
+        include: { guest: { select: { firstName: true, lastName: true, avatarUrl: true } } },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: reservation.apartment.ownerId,
+          type: 'REVIEW_NEW',
+          content: `Nova recenzija za "${reservation.apartment.title}" [reservation:${data.reservationId}]`,
+        },
+      });
+
+      return createdReview;
     });
 
     res.status(201).json(review);
@@ -62,7 +77,10 @@ router.patch('/:id/reply', authenticate, authorize('OWNER'), async (req, res, ne
 
     const review = await prisma.review.findUnique({
       where:   { id: req.params.id },
-      include: { apartment: { select: { ownerId: true } } },
+      include: {
+        apartment: { select: { ownerId: true, title: true } },
+        guest: { select: { firstName: true, lastName: true } },
+      },
     });
 
     if (!review) {
@@ -73,9 +91,21 @@ router.patch('/:id/reply', authenticate, authorize('OWNER'), async (req, res, ne
       return next(createError('Nije vaš apartman', 403));
     }
 
-    const updated = await prisma.review.update({
-      where: { id: req.params.id },
-      data:  { ownerReply: reply },
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedReview = await tx.review.update({
+        where: { id: req.params.id },
+        data:  { ownerReply: reply },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: review.guestId,
+          type: 'REVIEW_NEW',
+          content: `Vlasnik je odgovorio na vašu recenziju za "${review.apartment.title}"`,
+        },
+      });
+
+      return updatedReview;
     });
 
     res.json(updated);

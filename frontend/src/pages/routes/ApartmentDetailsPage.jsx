@@ -246,6 +246,7 @@ export default function ApartmentDetailsPage({
               <p><strong>{review.guest?.firstName} {review.guest?.lastName}</strong> — {formatDate(review.createdAt)}</p>
               <p>Ocjena: {review.rating}/5</p>
               <p>{review.comment}</p>
+              {review.ownerReply ? <p><strong>Odgovor vlasnika:</strong> {review.ownerReply}</p> : null}
             </article>
           ))}
         </div>
