@@ -134,6 +134,16 @@ function startOfDay(date) {
   return normalized;
 }
 
+async function syncCompletedReservations(db = prisma) {
+  await db.reservation.updateMany({
+    where: {
+      status: 'CONFIRMED',
+      checkOut: { lte: startOfDay(new Date()) },
+    },
+    data: { status: 'COMPLETED' },
+  });
+}
+
 function getCancellationNotice(cancellationPolicy) {
   if (cancellationPolicy === 'STRICT') {
     return 'Otkazivanje nije dopušteno';
@@ -150,6 +160,8 @@ function getCancellationNotice(cancellationPolicy) {
 
 router.get('/my', authenticate, async (req, res, next) => {
   try {
+    await syncCompletedReservations();
+
     const { status } = req.query;
     const where = { guestId: req.user.id };
 
@@ -174,6 +186,8 @@ router.get('/my', authenticate, async (req, res, next) => {
 
 router.get('/owner', authenticate, authorize('OWNER'), async (req, res, next) => {
   try {
+    await syncCompletedReservations();
+
     const { status, apartmentId, checkIn, checkOut } = req.query;
     const where = {
       apartment: { ownerId: req.user.id },
@@ -218,6 +232,8 @@ router.get('/owner', authenticate, authorize('OWNER'), async (req, res, next) =>
 
 router.get('/:id([0-9a-fA-F-]{36})', authenticate, async (req, res, next) => {
   try {
+    await syncCompletedReservations();
+
     const reservation = await prisma.reservation.findUnique({
       where: { id: req.params.id },
       include: {
@@ -257,10 +273,6 @@ router.post('/', authenticate, async (req, res, next) => {
 
     if (ci >= co) {
       return next(createError('Datum check-out mora biti nakon check-in'));
-    }
-
-    if (ci < startOfDay(new Date())) {
-      return next(createError('Check-in ne može biti u prošlosti'));
     }
 
     const reservation = await createReservationWithRetry({

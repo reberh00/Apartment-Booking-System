@@ -8,7 +8,6 @@ import ProfilePage from './pages/routes/ProfilePage';
 import ApartmentDetailsPage from './pages/routes/ApartmentDetailsPage';
 import GuestReservationsPage from './pages/routes/GuestReservationsPage';
 import GuestReservationDetailsPage from './pages/routes/GuestReservationDetailsPage';
-import ReviewsPage from './pages/routes/ReviewsPage';
 import NotificationsPage from './pages/routes/NotificationsPage';
 import OwnerApartmentsPage from './pages/routes/OwnerApartmentsPage';
 import OwnerApartmentCreatePage from './pages/routes/OwnerApartmentCreatePage';
@@ -47,8 +46,6 @@ export default function App() {
   const [analytics, setAnalytics] = useState(null);
 
   const [notifications, setNotifications] = useState([]);
-  const [reviewForm, setReviewForm] = useState({ reservationId: '', rating: 5, comment: '' });
-  const [replyForm, setReplyForm] = useState({ reviewId: '', reply: '' });
 
   const [adminApartments, setAdminApartments] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);
@@ -343,32 +340,6 @@ export default function App() {
     }
   }
 
-  async function createReview(e) {
-    e.preventDefault();
-    try {
-      await api.post('/reviews', {
-        ...reviewForm,
-        rating: Number(reviewForm.rating),
-      }, token);
-      setFeedback('Recenzija je spremljena.');
-      setReviewForm({ reservationId: '', rating: 5, comment: '' });
-      await loadGuestReservations();
-    } catch (err) {
-      setFeedback(err.message, true);
-    }
-  }
-
-  async function replyToReview(e) {
-    e.preventDefault();
-    try {
-      await api.patch(`/reviews/${replyForm.reviewId}/reply`, { reply: replyForm.reply }, token);
-      setFeedback('Odgovor na recenziju je spremljen.');
-      setReplyForm({ reviewId: '', reply: '' });
-    } catch (err) {
-      setFeedback(err.message, true);
-    }
-  }
-
   function logout() {
     localStorage.removeItem('token');
     setToken('');
@@ -395,7 +366,6 @@ export default function App() {
             <NavLink to="/app/search" className={routeClassName}>Pretraga</NavLink>
             <NavLink to="/app/profile" className={routeClassName}>Profil</NavLink>
             <NavLink to="/app/reservations/my" className={routeClassName}>Moje rezervacije</NavLink>
-            <NavLink to="/app/reviews" className={routeClassName}>Recenzije</NavLink>
             <NavLink to="/app/notifications" className={routeClassName}>Obavijesti</NavLink>
             {isOwner ? <NavLink to="/app/owner/apartments" className={routeClassName}>Owner panel</NavLink> : null}
             {isOwner ? <NavLink to="/app/owner/reservations" className={routeClassName}>Owner rezervacije</NavLink> : null}
@@ -486,18 +456,6 @@ export default function App() {
             setFeedback={setFeedback}
             statusBadgeClass={statusBadgeClass}
             updateReservationStatus={updateReservationStatus}
-          />
-        ) : <Navigate to="/" replace />} />
-
-        <Route path="/app/reviews" element={user ? (
-          <ReviewsPage
-            reviewForm={reviewForm}
-            setReviewForm={setReviewForm}
-            createReview={createReview}
-            isOwner={isOwner}
-            replyForm={replyForm}
-            setReplyForm={setReplyForm}
-            replyToReview={replyToReview}
           />
         ) : <Navigate to="/" replace />} />
 

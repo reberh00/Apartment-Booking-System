@@ -11,6 +11,8 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -74,6 +76,28 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
     }
   }
 
+  async function submitReview(e) {
+    e.preventDefault();
+    if (!reservation) return;
+
+    try {
+      setSubmittingReview(true);
+      const createdReview = await api.post('/reviews', {
+        reservationId: reservation.id,
+        rating: Number(reviewForm.rating),
+        comment: reviewForm.comment,
+      }, token);
+
+      setReservation((prev) => (prev ? { ...prev, review: createdReview } : prev));
+      setReviewForm({ rating: 5, comment: '' });
+      setFeedback('Recenzija je spremljena.');
+    } catch (err) {
+      setFeedback(err.message, true);
+    } finally {
+      setSubmittingReview(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="card">
@@ -123,6 +147,49 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
           Otkaži rezervaciju
         </button>
       </div>
+
+      {reservation.status === 'COMPLETED' ? (
+        <section className="card">
+          <h3>Recenzija boravka</h3>
+
+          {reservation.review ? (
+            <div className="list compact">
+              <article className="list-item">
+                <p><strong>Vaša ocjena:</strong> {reservation.review.rating}/5</p>
+                <p><strong>Komentar:</strong> {reservation.review.comment}</p>
+              </article>
+            </div>
+          ) : (
+            <form onSubmit={submitReview} className="grid grid-2">
+              <label>
+                Ocjena (1-5)
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  value={reviewForm.rating}
+                  onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: e.target.value }))}
+                  required
+                />
+              </label>
+
+              <label>
+                Komentar
+                <input
+                  value={reviewForm.comment}
+                  onChange={(e) => setReviewForm((prev) => ({ ...prev, comment: e.target.value }))}
+                  minLength={10}
+                  required
+                />
+              </label>
+
+              <button type="submit" disabled={submittingReview}>
+                {submittingReview ? 'Slanje...' : 'Pošalji recenziju'}
+              </button>
+            </form>
+          )}
+        </section>
+      ) : null}
 
       <section className="card">
         <h3>Chat s vlasnikom</h3>
