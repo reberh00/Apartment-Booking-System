@@ -7,12 +7,11 @@ import GuestSearchPage from './pages/routes/GuestSearchPage';
 import ProfilePage from './pages/routes/ProfilePage';
 import ApartmentDetailsPage from './pages/routes/ApartmentDetailsPage';
 import GuestReservationsPage from './pages/routes/GuestReservationsPage';
-import GuestReservationDetailsPage from './pages/routes/GuestReservationDetailsPage';
+import ReservationDetailsPage from './pages/routes/ReservationDetailsPage';
 import NotificationsPage from './pages/routes/NotificationsPage';
 import OwnerApartmentsPage from './pages/routes/OwnerApartmentsPage';
 import OwnerApartmentCreatePage from './pages/routes/OwnerApartmentCreatePage';
 import OwnerReservationsPage from './pages/routes/OwnerReservationsPage';
-import OwnerReservationDetailsPage from './pages/routes/OwnerReservationDetailsPage';
 import OwnerAnalyticsPage from './pages/routes/OwnerAnalyticsPage';
 import AdminApartmentsPage from './pages/routes/AdminApartmentsPage';
 import AdminUsersPage from './pages/routes/AdminUsersPage';
@@ -451,7 +450,8 @@ export default function App() {
         ) : <Navigate to="/" replace />} />
 
         <Route path="/app/reservations/:reservationId" element={user ? (
-          <GuestReservationDetailsPage
+          <ReservationDetailsPage
+            user={user}
             token={token}
             setFeedback={setFeedback}
             statusBadgeClass={statusBadgeClass}
@@ -508,7 +508,8 @@ export default function App() {
         ) : <Navigate to="/app/profile" replace />} />
 
         <Route path="/app/owner/reservations/:reservationId" element={user && isOwner ? (
-          <OwnerReservationDetailsPage
+          <ReservationDetailsPage
+            user={user}
             token={token}
             setFeedback={setFeedback}
             statusBadgeClass={statusBadgeClass}

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
 
-export default function GuestReservationDetailsPage({ token, setFeedback, statusBadgeClass, updateReservationStatus }) {
+export default function ReservationDetailsPage({ user, token, setFeedback, statusBadgeClass, updateReservationStatus }) {
   const { reservationId } = useParams();
   const navigate = useNavigate();
 
@@ -13,6 +13,20 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
   const [sendingMessage, setSendingMessage] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [replyForm, setReplyForm] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
+
+  const isOwner = useMemo(() => {
+    if (!reservation || !user) return false;
+    return reservation.apartment?.ownerId === user.id;
+  }, [reservation, user]);
+
+  const isGuest = useMemo(() => {
+    if (!reservation || !user) return false;
+    return reservation.guestId === user.id;
+  }, [reservation, user]);
+
+  const backPath = isOwner ? '/app/owner/reservations' : '/app/reservations/my';
 
   useEffect(() => {
     let ignore = false;
@@ -24,8 +38,11 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
           api.get(`/reservations/${reservationId}`, token),
           api.get(`/messages/${reservationId}`, token),
         ]);
+
         if (ignore) return;
+
         setReservation(reservationData);
+        setReplyForm(reservationData.review?.ownerReply || '');
         setMessages(messageData);
       } catch (err) {
         if (!ignore) {
@@ -45,12 +62,12 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
     };
   }, [reservationId, setFeedback, token]);
 
-  async function cancelReservation() {
+  async function changeStatus(status) {
     if (!reservation) return;
 
     try {
-      await updateReservationStatus(reservation.id, 'CANCELLED');
-      setReservation((prev) => (prev ? { ...prev, status: 'CANCELLED' } : prev));
+      await updateReservationStatus(reservation.id, status);
+      setReservation((prev) => (prev ? { ...prev, status } : prev));
     } catch {
       // feedback is handled in App updateReservationStatus
     }
@@ -98,6 +115,33 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
     }
   }
 
+  async function submitOwnerReply(e) {
+    e.preventDefault();
+    if (!reservation?.review?.id) return;
+
+    try {
+      setSubmittingReply(true);
+      const updatedReview = await api.patch(`/reviews/${reservation.review.id}/reply`, {
+        reply: replyForm.trim(),
+      }, token);
+
+      setReservation((prev) => (prev ? {
+        ...prev,
+        review: {
+          ...prev.review,
+          ownerReply: updatedReview.ownerReply,
+        },
+      } : prev));
+
+      setReplyForm(updatedReview.ownerReply || '');
+      setFeedback('Odgovor na recenziju je spremljen.');
+    } catch (err) {
+      setFeedback(err.message, true);
+    } finally {
+      setSubmittingReply(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="card">
@@ -110,7 +154,7 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
     return (
       <section className="card">
         <h2>Rezervacija nije pronađena.</h2>
-        <button type="button" onClick={() => navigate('/app/reservations/my')}>Natrag na moje rezervacije</button>
+        <button type="button" onClick={() => navigate(backPath)}>Natrag na rezervacije</button>
       </section>
     );
   }
@@ -119,16 +163,29 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
     <section className="card">
       <div className="row between">
         <h2>Detalji rezervacije</h2>
-        <button type="button" className="ghost" onClick={() => navigate('/app/reservations/my')}>Natrag</button>
+        <button type="button" className="ghost" onClick={() => navigate(backPath)}>Natrag</button>
       </div>
 
       <div className="list compact">
         <article className="list-item">
           <p><strong>ID:</strong> {reservation.id}</p>
           <p><strong>Apartman:</strong> {reservation.apartment?.title || reservation.apartmentId}</p>
-          <p><strong>Vlasnik:</strong> {reservation.apartment?.owner?.firstName} {reservation.apartment?.owner?.lastName}</p>
-          <p><strong>Kontakt vlasnika:</strong> {reservation.apartment?.owner?.email || '-'}</p>
-          <p><strong>Telefon vlasnika:</strong> {reservation.apartment?.owner?.phone || '-'}</p>
+
+          {isOwner ? (
+            <>
+              <p><strong>Gost:</strong> {reservation.guest?.firstName} {reservation.guest?.lastName}</p>
+              <p><strong>Kontakt gosta:</strong> {reservation.guest?.email || '-'}</p>
+            </>
+          ) : null}
+
+          {isGuest ? (
+            <>
+              <p><strong>Vlasnik:</strong> {reservation.apartment?.owner?.firstName} {reservation.apartment?.owner?.lastName}</p>
+              <p><strong>Kontakt vlasnika:</strong> {reservation.apartment?.owner?.email || '-'}</p>
+              <p><strong>Telefon vlasnika:</strong> {reservation.apartment?.owner?.phone || '-'}</p>
+            </>
+          ) : null}
+
           <p><strong>Status:</strong> <span className={statusBadgeClass(reservation.status)}>{reservation.status}</span></p>
           <p><strong>Check-in:</strong> {String(reservation.checkIn).slice(0, 10)}</p>
           <p><strong>Check-out:</strong> {String(reservation.checkOut).slice(0, 10)}</p>
@@ -138,17 +195,39 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
         </article>
       </div>
 
-      <div className="row gap">
-        <button
-          type="button"
-          onClick={cancelReservation}
-          disabled={!['PENDING', 'CONFIRMED'].includes(reservation.status)}
-        >
-          Otkaži rezervaciju
-        </button>
-      </div>
+      {isOwner ? (
+        <div className="row gap">
+          <button
+            type="button"
+            onClick={() => changeStatus('CONFIRMED')}
+            disabled={reservation.status !== 'PENDING'}
+          >
+            Potvrdi
+          </button>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => changeStatus('REJECTED')}
+            disabled={reservation.status !== 'PENDING'}
+          >
+            Odbij
+          </button>
+        </div>
+      ) : null}
 
-      {reservation.status === 'COMPLETED' ? (
+      {isGuest ? (
+        <div className="row gap">
+          <button
+            type="button"
+            onClick={() => changeStatus('CANCELLED')}
+            disabled={!['PENDING', 'CONFIRMED'].includes(reservation.status)}
+          >
+            Otkaži rezervaciju
+          </button>
+        </div>
+      ) : null}
+
+      {reservation.status === 'COMPLETED' && isGuest ? (
         <section className="card">
           <h3>Recenzija boravka</h3>
 
@@ -157,6 +236,7 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
               <article className="list-item">
                 <p><strong>Vaša ocjena:</strong> {reservation.review.rating}/5</p>
                 <p><strong>Komentar:</strong> {reservation.review.comment}</p>
+                {reservation.review.ownerReply ? <p><strong>Odgovor vlasnika:</strong> {reservation.review.ownerReply}</p> : null}
               </article>
             </div>
           ) : (
@@ -191,8 +271,37 @@ export default function GuestReservationDetailsPage({ token, setFeedback, status
         </section>
       ) : null}
 
+      {reservation.review && isOwner ? (
+        <section className="card">
+          <h3>Recenzija gosta</h3>
+          <div className="list compact">
+            <article className="list-item">
+              <p><strong>Ocjena:</strong> {reservation.review.rating}/5</p>
+              <p><strong>Komentar:</strong> {reservation.review.comment}</p>
+              {reservation.review.ownerReply ? <p><strong>Vaš odgovor:</strong> {reservation.review.ownerReply}</p> : null}
+            </article>
+          </div>
+
+          <form onSubmit={submitOwnerReply} className="grid grid-2">
+            <label>
+              Odgovor vlasnika
+              <input
+                value={replyForm}
+                onChange={(e) => setReplyForm(e.target.value)}
+                minLength={5}
+                maxLength={500}
+                required
+              />
+            </label>
+            <button type="submit" disabled={submittingReply}>
+              {submittingReply ? 'Spremanje...' : reservation.review.ownerReply ? 'Ažuriraj odgovor' : 'Pošalji odgovor'}
+            </button>
+          </form>
+        </section>
+      ) : null}
+
       <section className="card">
-        <h3>Chat s vlasnikom</h3>
+        <h3>{isOwner ? 'Chat s gostom' : 'Chat s vlasnikom'}</h3>
         <form onSubmit={sendMessage} className="grid grid-2">
           <label>
             Nova poruka
