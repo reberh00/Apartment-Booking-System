@@ -49,7 +49,7 @@ router.patch('/apartments/:id/status', async (req, res, next) => {
         data: {
           userId:  apt.owner.id,
           type:    notificationType,
-          content: `Vaš oglas "${apt.title}" je ${actionText}`,
+          content: `Vaš oglas "${apt.title}" je ${actionText} [apartment:${apt.id}]`,
         },
       });
 

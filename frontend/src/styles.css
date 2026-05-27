@@ -130,6 +130,27 @@ button:hover {
   background: #fff;
 }
 
+.notification-item {
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notification-unread {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  box-shadow: inset 4px 0 0 #f59e0b;
+}
+
+.notification-read {
+  border-color: #d8e0ef;
+  background: #f8fafc;
+  opacity: 0.85;
+}
+
+a.notification-item:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
 .card-link-reset {
   color: inherit;
   text-decoration: none;
@@ -185,6 +206,11 @@ button:hover {
 .badge-neutral {
   background: #e2e8f0;
   color: #334155;
+}
+
+.notif-bubble {
+  min-width: 1.2rem;
+  text-align: center;
 }
 
 @media (max-width: 920px) {

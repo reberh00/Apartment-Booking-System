@@ -5,7 +5,19 @@ function extractReservationId(content) {
   return match ? match[1] : null;
 }
 
-export default function NotificationsSection({ notifications, markNotificationsRead, isOwner }) {
+function extractApartmentId(content) {
+  const match = content.match(/\[apartment:([0-9a-fA-F-]{36})\]/);
+  return match ? match[1] : null;
+}
+
+function stripReservationMarker(content) {
+  return content
+    .replace(/\s*\[reservation:[0-9a-fA-F-]{36}\]/, '')
+    .replace(/\s*\[apartment:[0-9a-fA-F-]{36}\]/, '')
+    .trim();
+}
+
+export default function NotificationsSection({ notifications, markNotificationsRead, markNotificationRead, isOwner }) {
   return (
     <section className="card">
       <div className="row between">
@@ -13,24 +25,39 @@ export default function NotificationsSection({ notifications, markNotificationsR
         <button onClick={markNotificationsRead}>Označi sve kao pročitano</button>
       </div>
       <div className="list compact">
-        {notifications.map((notification) => (
-          <div key={notification.id} className="list-item">
-            <strong>{notification.type}</strong> — {notification.content}
-            {notification.type === 'MESSAGE_NEW' && extractReservationId(notification.content) ? (
-              <>
-                {' '}
-                <Link
-                  to={isOwner
-                    ? `/app/owner/reservations/${extractReservationId(notification.content)}`
-                    : `/app/reservations/${extractReservationId(notification.content)}`}
-                  className="badge badge-neutral"
-                >
-                  Otvori chat
-                </Link>
-              </>
-            ) : null}
-          </div>
-        ))}
+        {notifications.map((notification) => {
+          const reservationId = extractReservationId(notification.content || '');
+          const apartmentId = extractApartmentId(notification.content || '');
+          let detailsLink = reservationId
+            ? (isOwner ? `/app/owner/reservations/${reservationId}` : `/app/reservations/${reservationId}`)
+            : null;
+
+          if (!detailsLink && apartmentId) {
+            detailsLink = isOwner ? `/app/owner/apartments/${apartmentId}` : `/app/apartments/${apartmentId}`;
+          }
+
+          const displayContent = stripReservationMarker(notification.content || '');
+          const itemClass = `list-item notification-item ${notification.isRead ? 'notification-read' : 'notification-unread'}`;
+
+          if (detailsLink) {
+            return (
+              <Link
+                key={notification.id}
+                to={detailsLink}
+                className={`${itemClass} card-link-reset`}
+                onClick={() => markNotificationRead(notification.id)}
+              >
+                <strong>{notification.type}</strong> — {displayContent}
+              </Link>
+            );
+          }
+
+          return (
+            <div key={notification.id} className={itemClass}>
+              <strong>{notification.type}</strong> — {displayContent}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

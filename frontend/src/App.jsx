@@ -60,6 +60,10 @@ export default function App() {
     };
   }, []);
 
+  const unreadNotificationsCount = useMemo(() => {
+    return notifications.reduce((count, notification) => (notification.isRead ? count : count + 1), 0);
+  }, [notifications]);
+
   useEffect(() => {
     void loadApartments();
     void loadContents();
@@ -333,7 +337,18 @@ export default function App() {
     try {
       await api.patch('/notifications/read-all', {}, token);
       setFeedback('Obavijesti su označene kao pročitane.');
-      await loadNotifications();
+      setNotifications((prev) => prev.map((notification) => ({ ...notification, isRead: true })));
+    } catch (err) {
+      setFeedback(err.message, true);
+    }
+  }
+
+  async function markNotificationRead(id) {
+    try {
+      await api.patch(`/notifications/${id}/read`, {}, token);
+      setNotifications((prev) => prev.map((notification) => (
+        notification.id === id ? { ...notification, isRead: true } : notification
+      )));
     } catch (err) {
       setFeedback(err.message, true);
     }
@@ -365,7 +380,12 @@ export default function App() {
             <NavLink to="/app/search" className={routeClassName}>Pretraga</NavLink>
             <NavLink to="/app/profile" className={routeClassName}>Profil</NavLink>
             <NavLink to="/app/reservations/my" className={routeClassName}>Moje rezervacije</NavLink>
-            <NavLink to="/app/notifications" className={routeClassName}>Obavijesti</NavLink>
+            <NavLink to="/app/notifications" className={routeClassName}>
+              <span className="row gap">
+                Obavijesti
+                {unreadNotificationsCount > 0 ? <span className="badge badge-warn notif-bubble">{unreadNotificationsCount}</span> : null}
+              </span>
+            </NavLink>
             {isOwner ? <NavLink to="/app/owner/apartments" className={routeClassName}>Owner panel</NavLink> : null}
             {isOwner ? <NavLink to="/app/owner/reservations" className={routeClassName}>Owner rezervacije</NavLink> : null}
             {isAdmin ? <NavLink to="/app/admin/apartments" className={routeClassName}>Admin panel</NavLink> : null}
@@ -463,6 +483,7 @@ export default function App() {
           <NotificationsPage
             notifications={notifications}
             markNotificationsRead={markNotificationsRead}
+            markNotificationRead={markNotificationRead}
             isOwner={isOwner}
           />
         ) : <Navigate to="/" replace />} />

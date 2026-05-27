@@ -109,7 +109,7 @@ async function createReservationWithRetry(payload) {
           data: {
             userId: newReservation.apartment.ownerId,
             type: 'RESERVATION_NEW',
-            content: `Nova rezervacija za "${newReservation.apartment.title}" od ${newReservation.guest.firstName} ${newReservation.guest.lastName}`,
+            content: `Nova rezervacija za "${newReservation.apartment.title}" od ${newReservation.guest.firstName} ${newReservation.guest.lastName} [reservation:${newReservation.id}]`,
           },
         });
 
@@ -374,7 +374,7 @@ router.patch('/:id/status', authenticate, async (req, res, next) => {
         data: {
           userId:  targetUserId,
           type:    `RESERVATION_${status}`,
-          content: `Rezervacija za "${reservation.apartment.title}" je ${statusText}`,
+          content: `Rezervacija za "${reservation.apartment.title}" je ${statusText} [reservation:${reservation.id}]`,
         },
       }),
     ]);
@@ -400,3 +400,4 @@ router.get('/check-availability', async (req, res, next) => {
 });
 
 module.exports = router;
+

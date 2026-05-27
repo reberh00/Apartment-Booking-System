@@ -1,4 +1,4 @@
-const router = require('express').Router();
+﻿const router = require('express').Router();
 const { z } = require('zod');
 const prisma = require('../utils/prisma');
 const { authenticate, authorize } = require('../middleware/auth');
@@ -101,7 +101,7 @@ router.patch('/:id/reply', authenticate, authorize('OWNER'), async (req, res, ne
         data: {
           userId: review.guestId,
           type: 'REVIEW_NEW',
-          content: `Vlasnik je odgovorio na vašu recenziju za "${review.apartment.title}"`,
+          content: `Vlasnik je odgovorio na vašu recenziju za "${review.apartment.title}" [reservation:${review.reservationId}]`,
         },
       });
 
@@ -115,3 +115,6 @@ router.patch('/:id/reply', authenticate, authorize('OWNER'), async (req, res, ne
 });
 
 module.exports = router;
+
+
+
