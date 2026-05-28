@@ -322,6 +322,10 @@ router.patch('/:id/status', authenticate, async (req, res, next) => {
       return next(createError('Vlasnik ne može otkazati — koristi REJECTED', 403));
     }
 
+    if (isOwner && reservation.status !== 'PENDING') {
+      return next(createError('Vlasnik može potvrditi ili odbiti samo rezervaciju u statusu PENDING', 400));
+    }
+
     if (isGuest && status === 'CANCELLED') {
       if (!['PENDING', 'CONFIRMED'].includes(reservation.status)) {
         return next(createError('Rezervaciju nije moguće otkazati u ovom statusu', 400));

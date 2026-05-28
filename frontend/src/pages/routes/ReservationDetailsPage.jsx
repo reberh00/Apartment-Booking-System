@@ -195,12 +195,11 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
         </article>
       </div>
 
-      {isOwner ? (
+      {isOwner && reservation.status === 'PENDING' ? (
         <div className="row gap">
           <button
             type="button"
             onClick={() => changeStatus('CONFIRMED')}
-            disabled={reservation.status !== 'PENDING'}
           >
             Potvrdi
           </button>
@@ -208,7 +207,6 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
             type="button"
             className="ghost"
             onClick={() => changeStatus('REJECTED')}
-            disabled={reservation.status !== 'PENDING'}
           >
             Odbij
           </button>

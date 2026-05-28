@@ -82,8 +82,12 @@ export default function OwnerReservationsSection({
             <p>Trajanje: {getStayNights(reservation.checkIn, reservation.checkOut)} noći</p>
             <div className="row gap">
               <Link to={`/app/owner/reservations/${reservation.id}`} className="badge badge-neutral">Detalji i chat</Link>
-              <button type="button" onClick={() => updateReservationStatus(reservation.id, 'CONFIRMED')}>Potvrdi</button>
-              <button type="button" className="ghost" onClick={() => updateReservationStatus(reservation.id, 'REJECTED')}>Odbij</button>
+              {reservation.status === 'PENDING' ? (
+                <>
+                  <button type="button" onClick={() => updateReservationStatus(reservation.id, 'CONFIRMED')}>Potvrdi</button>
+                  <button type="button" className="ghost" onClick={() => updateReservationStatus(reservation.id, 'REJECTED')}>Odbij</button>
+                </>
+              ) : null}
             </div>
           </article>
         ))}
