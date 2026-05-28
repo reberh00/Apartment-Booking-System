@@ -158,6 +158,42 @@ function getCancellationNotice(cancellationPolicy) {
   return `Rezervaciju možete otkazati najkasnije ${minimumDays} dana prije check-ina`;
 }
 
+function getRequiredCancellationDays(cancellationPolicy) {
+  const minDaysByPolicy = {
+    FLEXIBLE: 1,
+    MODERATE: 5,
+    STRICT: Number.POSITIVE_INFINITY,
+  };
+
+  return minDaysByPolicy[cancellationPolicy] ?? 1;
+}
+
+function getGuestCancellationState(reservation) {
+  if (!['PENDING', 'CONFIRMED'].includes(reservation.status)) {
+    return {
+      canCancel: false,
+      reason: 'Rezervaciju nije moguće otkazati u ovom statusu',
+    };
+  }
+
+  const requiredDays = getRequiredCancellationDays(reservation.apartment?.cancellationPolicy);
+  const today = startOfDay(new Date());
+  const checkIn = startOfDay(reservation.checkIn);
+  const daysUntilCheckIn = Math.floor((checkIn - today) / (1000 * 60 * 60 * 24));
+
+  if (daysUntilCheckIn < requiredDays) {
+    return {
+      canCancel: false,
+      reason: getCancellationNotice(reservation.apartment?.cancellationPolicy),
+    };
+  }
+
+  return {
+    canCancel: true,
+    reason: null,
+  };
+}
+
 router.get('/my', authenticate, async (req, res, next) => {
   try {
     await syncCompletedReservations();
@@ -178,7 +214,17 @@ router.get('/my', authenticate, async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    res.json(reservations);
+    const enrichedReservations = reservations.map((reservation) => {
+      const { canCancel, reason } = getGuestCancellationState(reservation);
+
+      return {
+        ...reservation,
+        canGuestCancel: canCancel,
+        guestCancellationReason: reason,
+      };
+    });
+
+    res.json(enrichedReservations);
   } catch (err) {
     next(err);
   }
@@ -259,7 +305,13 @@ router.get('/:id([0-9a-fA-F-]{36})', authenticate, async (req, res, next) => {
       return next(createError('Nemate ovlasti', 403));
     }
 
-    res.json(reservation);
+    const { canCancel, reason } = getGuestCancellationState(reservation);
+
+    res.json({
+      ...reservation,
+      canGuestCancel: canCancel,
+      guestCancellationReason: reason,
+    });
   } catch (err) {
     next(err);
   }
@@ -327,29 +379,10 @@ router.patch('/:id/status', authenticate, async (req, res, next) => {
     }
 
     if (isGuest && status === 'CANCELLED') {
-      if (!['PENDING', 'CONFIRMED'].includes(reservation.status)) {
-        return next(createError('Rezervaciju nije moguće otkazati u ovom statusu', 400));
-      }
+      const { canCancel, reason } = getGuestCancellationState(reservation);
 
-      if (reservation.status === 'CONFIRMED') {
-        const today = startOfDay(new Date());
-        const checkIn = startOfDay(reservation.checkIn);
-        const daysUntilCheckIn = Math.floor((checkIn - today) / (1000 * 60 * 60 * 24));
-
-        const minDaysByPolicy = {
-          FLEXIBLE: 1,
-          MODERATE: 5,
-          STRICT: Number.POSITIVE_INFINITY,
-        };
-
-        let requiredDays = minDaysByPolicy[reservation.apartment.cancellationPolicy];
-        if (requiredDays === undefined) {
-          requiredDays = 1;
-        }
-
-        if (daysUntilCheckIn < requiredDays) {
-          return next(createError(getCancellationNotice(reservation.apartment.cancellationPolicy), 400));
-        }
+      if (!canCancel) {
+        return next(createError(reason, 400));
       }
     }
 

@@ -12,9 +12,19 @@ export default function GuestReservationsSection({ guestReservations, statusBadg
               <span className={statusBadgeClass(reservation.status)}>{reservation.status}</span>
             </div>
             <p>{String(reservation.checkIn).slice(0, 10)} - {String(reservation.checkOut).slice(0, 10)}</p>
+            {!reservation.canGuestCancel && reservation.guestCancellationReason ? (
+              <p className="meta">{reservation.guestCancellationReason}</p>
+            ) : null}
             <div className="row gap">
               <Link to={`/app/reservations/${reservation.id}`} className="badge badge-neutral">Detalji</Link>
-              <button type="button" onClick={() => updateReservationStatus(reservation.id, 'CANCELLED')}>Otkaži</button>
+              <button
+                type="button"
+                onClick={() => updateReservationStatus(reservation.id, 'CANCELLED')}
+                disabled={!reservation.canGuestCancel}
+                title={!reservation.canGuestCancel ? reservation.guestCancellationReason || '' : ''}
+              >
+                Otkaži
+              </button>
             </div>
           </article>
         ))}

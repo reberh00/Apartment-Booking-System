@@ -218,10 +218,14 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
           <button
             type="button"
             onClick={() => changeStatus('CANCELLED')}
-            disabled={!['PENDING', 'CONFIRMED'].includes(reservation.status)}
+            disabled={!reservation.canGuestCancel}
+            title={!reservation.canGuestCancel ? reservation.guestCancellationReason || '' : ''}
           >
             Otkaži rezervaciju
           </button>
+          {!reservation.canGuestCancel && reservation.guestCancellationReason ? (
+            <p className="meta">{reservation.guestCancellationReason}</p>
+          ) : null}
         </div>
       ) : null}
 
