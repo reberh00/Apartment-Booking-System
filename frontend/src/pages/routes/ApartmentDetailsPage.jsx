@@ -16,6 +16,72 @@ const editableKeys = [
   'cancellationPolicy',
 ];
 
+function formatCurrency(value) {
+  return `${Number(value || 0).toFixed(2)} EUR`;
+}
+
+function StatsLineChart({ data, dataKey, stroke, title, formatter }) {
+  const width = 680;
+  const height = 220;
+  const padding = 24;
+
+  if (!data?.length) {
+    return null;
+  }
+
+  const maxValue = Math.max(...data.map((item) => Number(item[dataKey] || 0)), 1);
+  const stepX = data.length > 1 ? (width - padding * 2) / (data.length - 1) : 0;
+
+  const points = data.map((item, index) => {
+    const numericValue = Number(item[dataKey] || 0);
+    const x = padding + index * stepX;
+    const y = height - padding - ((height - padding * 2) * (numericValue / maxValue));
+
+    return {
+      x,
+      y,
+      label: item.label,
+      value: numericValue,
+    };
+  });
+
+  const linePath = points.map((point) => `${point.x},${point.y}`).join(' ');
+
+  return (
+    <div className="stats-chart-wrap">
+      <h4>{title}</h4>
+      <svg viewBox={`0 0 ${width} ${height}`} className="stats-chart" role="img" aria-label={title}>
+        <line
+          x1={padding}
+          y1={height - padding}
+          x2={width - padding}
+          y2={height - padding}
+          stroke="#cbd5e1"
+          strokeWidth="1"
+        />
+        <polyline
+          fill="none"
+          stroke={stroke}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={linePath}
+        />
+        {points.map((point) => (
+          <circle key={point.label} cx={point.x} cy={point.y} r="3" fill={stroke}>
+            <title>{`${point.label}: ${formatter(point.value)}`}</title>
+          </circle>
+        ))}
+      </svg>
+      <div className="stats-chart-labels">
+        {data.map((item, index) => (index % 2 === 0 || index === data.length - 1 ? (
+          <span key={`${title}-${item.label}`}>{item.label}</span>
+        ) : null))}
+      </div>
+    </div>
+  );
+}
+
 export default function ApartmentDetailsPage({
   user,
   token,
@@ -34,12 +100,19 @@ export default function ApartmentDetailsPage({
   const [reserving, setReserving] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [apartment, setApartment] = useState(null);
+  const [apartmentStats, setApartmentStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [form, setForm] = useState(null);
   const [reservationForm, setReservationForm] = useState({ checkIn: '', checkOut: '', numGuests: 1 });
 
   const isOwner = useMemo(() => {
     if (!user || !apartment) return false;
     return apartment.owner?.id === user.id;
+  }, [user, apartment]);
+
+  const canViewStats = useMemo(() => {
+    if (!user || !apartment) return false;
+    return user.role === 'ADMIN' || apartment.owner?.id === user.id;
   }, [user, apartment]);
 
   useEffect(() => {
@@ -83,6 +156,39 @@ export default function ApartmentDetailsPage({
       ignore = true;
     };
   }, [apartmentId, setFeedback]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadStats() {
+      if (!canViewStats || !token) {
+        setApartmentStats(null);
+        return;
+      }
+
+      try {
+        setStatsLoading(true);
+        const data = await api.get(`/apartments/${apartmentId}/stats`, token);
+
+        if (ignore) return;
+        setApartmentStats(data);
+      } catch (err) {
+        if (!ignore) {
+          setFeedback(err.message, true);
+        }
+      } finally {
+        if (!ignore) {
+          setStatsLoading(false);
+        }
+      }
+    }
+
+    void loadStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, [apartmentId, canViewStats, setFeedback, token]);
 
   function formatDate(date) {
     const parsed = new Date(date);
@@ -240,6 +346,65 @@ export default function ApartmentDetailsPage({
               {(apartment.contents || []).map((item) => item.content?.name).filter(Boolean).join(', ') || 'Nema odabranih sadržaja'}
             </p>
           </article>
+
+          {canViewStats ? (
+            <article className="list-item">
+              <h3>Statistika apartmana</h3>
+              {statsLoading ? <p>Učitavanje statistike...</p> : null}
+
+              {!statsLoading && apartmentStats ? (
+                <>
+                  <div className="grid grid-4">
+                    <div className="list-item">
+                      <strong>Ukupno rezervacija</strong>
+                      <p>{apartmentStats.totalReservations}</p>
+                    </div>
+                    <div className="list-item">
+                      <strong>Realizirane rezervacije</strong>
+                      <p>{apartmentStats.completedReservations}</p>
+                    </div>
+                    <div className="list-item">
+                      <strong>Ukupan prihod</strong>
+                      <p>{formatCurrency(apartmentStats.totalIncome)}</p>
+                    </div>
+                    <div className="list-item">
+                      <strong>Na čekanju</strong>
+                      <p>{apartmentStats.pendingReservations}</p>
+                    </div>
+                  </div>
+
+                  <div className="stats-year-list">
+                    <h4>Godišnje</h4>
+                    <div className="list compact">
+                      {apartmentStats.yearlyTrend.length ? apartmentStats.yearlyTrend.map((yearRow) => (
+                        <div key={yearRow.label} className="list-item row between">
+                          <span>{yearRow.label}</span>
+                          <span>{yearRow.reservations} rezervacija • {formatCurrency(yearRow.income)}</span>
+                        </div>
+                      )) : (
+                        <p className="meta">Nema realiziranih rezervacija.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <StatsLineChart
+                    data={apartmentStats.monthlyTrend}
+                    dataKey="income"
+                    stroke="#2563eb"
+                    title="Prihod po mjesecima (zadnjih 12 mjeseci)"
+                    formatter={formatCurrency}
+                  />
+                  <StatsLineChart
+                    data={apartmentStats.monthlyTrend}
+                    dataKey="reservations"
+                    stroke="#f97316"
+                    title="Broj rezervacija po mjesecima (zadnjih 12 mjeseci)"
+                    formatter={(value) => `${value} rezervacija`}
+                  />
+                </>
+              ) : null}
+            </article>
+          ) : null}
 
           {(apartment.reviews || []).map((review) => (
             <article key={review.id} className="list-item">

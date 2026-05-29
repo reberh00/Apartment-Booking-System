@@ -213,6 +213,40 @@ a.notification-item:hover {
   text-align: center;
 }
 
+.stats-chart-wrap {
+  margin-top: 0.9rem;
+}
+
+.stats-chart-wrap h4 {
+  margin: 0 0 0.5rem;
+}
+
+.stats-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid #d8e0ef;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.stats-chart-labels {
+  margin-top: 0.4rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.35rem;
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.stats-year-list {
+  margin-top: 0.9rem;
+}
+
+.stats-year-list h4 {
+  margin: 0 0 0.5rem;
+}
+
 @media (max-width: 920px) {
   .grid-6,
   .grid-4,

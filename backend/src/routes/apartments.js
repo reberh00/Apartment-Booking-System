@@ -38,6 +38,22 @@ async function isApartmentOwner(apartmentId, user) {
   return apartment;
 }
 
+function startOfDay(date) {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+}
+
+function monthLabel(year, month) {
+  const mm = String(month).padStart(2, '0');
+  return `${mm}/${year}`;
+}
+
+function monthKey(year, month) {
+  const mm = String(month).padStart(2, '0');
+  return `${year}-${mm}`;
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const { city, checkIn, checkOut, guests, minPrice, maxPrice, page = 1, limit = 12 } = req.query;
@@ -123,6 +139,146 @@ router.get('/', async (req, res, next) => {
     });
 
     res.json({ apartments: result, total, page: parseInt(page), totalPages: Math.ceil(total / parseInt(limit)) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id([0-9a-fA-F-]{36})/stats', authenticate, authorize('OWNER', 'ADMIN'), async (req, res, next) => {
+  try {
+    const apartment = await prisma.apartment.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, ownerId: true, title: true },
+    });
+
+    if (!apartment) {
+      return next(createError('Apartman nije pronađen', 404));
+    }
+
+    if (req.user.role === 'OWNER' && apartment.ownerId !== req.user.id) {
+      return next(createError('Nemate ovlasti za ovaj apartman', 403));
+    }
+
+    const reservations = await prisma.reservation.findMany({
+      where: { apartmentId: req.params.id },
+      select: {
+        status: true,
+        checkIn: true,
+        checkOut: true,
+        totalPrice: true,
+      },
+      orderBy: { checkIn: 'asc' },
+    });
+
+    const today = startOfDay(new Date());
+    const monthlyMap = {};
+    const yearlyMap = {};
+
+    let totalReservations = 0;
+    let pendingReservations = 0;
+    let cancelledReservations = 0;
+    let rejectedReservations = 0;
+    let completedReservations = 0;
+    let totalIncome = 0;
+
+    for (const reservation of reservations) {
+      totalReservations += 1;
+
+      if (reservation.status === 'PENDING') {
+        pendingReservations += 1;
+      }
+
+      if (reservation.status === 'CANCELLED') {
+        cancelledReservations += 1;
+      }
+
+      if (reservation.status === 'REJECTED') {
+        rejectedReservations += 1;
+      }
+
+      const checkOutDate = startOfDay(reservation.checkOut);
+      const isRealizedStay = reservation.status === 'COMPLETED'
+        || (reservation.status === 'CONFIRMED' && checkOutDate <= today);
+
+      if (!isRealizedStay) {
+        continue;
+      }
+
+      completedReservations += 1;
+
+      const amount = Number(reservation.totalPrice || 0);
+      totalIncome += amount;
+
+      const checkInDate = new Date(reservation.checkIn);
+      const year = checkInDate.getFullYear();
+      const month = checkInDate.getMonth() + 1;
+      const key = monthKey(year, month);
+
+      if (!monthlyMap[key]) {
+        monthlyMap[key] = {
+          year,
+          month,
+          label: monthLabel(year, month),
+          reservations: 0,
+          income: 0,
+        };
+      }
+
+      monthlyMap[key].reservations += 1;
+      monthlyMap[key].income += amount;
+
+      if (!yearlyMap[year]) {
+        yearlyMap[year] = {
+          year,
+          label: String(year),
+          reservations: 0,
+          income: 0,
+        };
+      }
+
+      yearlyMap[year].reservations += 1;
+      yearlyMap[year].income += amount;
+    }
+
+    const monthlyTrend = [];
+    const cursor = new Date(today.getFullYear(), today.getMonth() - 11, 1);
+
+    for (let index = 0; index < 12; index += 1) {
+      const year = cursor.getFullYear();
+      const month = cursor.getMonth() + 1;
+      const key = monthKey(year, month);
+      const existing = monthlyMap[key];
+
+      if (existing) {
+        monthlyTrend.push(existing);
+      } else {
+        monthlyTrend.push({
+          year,
+          month,
+          label: monthLabel(year, month),
+          reservations: 0,
+          income: 0,
+        });
+      }
+
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    const yearlyTrend = Object.values(yearlyMap)
+      .sort((a, b) => a.year - b.year);
+
+    res.json({
+      apartmentId: apartment.id,
+      apartmentTitle: apartment.title,
+      totalReservations,
+      pendingReservations,
+      cancelledReservations,
+      rejectedReservations,
+      completedReservations,
+      totalIncome,
+      monthlyTrend,
+      yearlyTrend,
+    });
   } catch (err) {
     next(err);
   }
