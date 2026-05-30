@@ -29,6 +29,12 @@ function formatDateInput(date) {
   return `${year}-${month}-${day}`;
 }
 
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
 function parseDateFromInput(value) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -141,6 +147,10 @@ export default function ApartmentDetailsPage({
   const [unavailableRanges, setUnavailableRanges] = useState([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [calendarSelectionMessage, setCalendarSelectionMessage] = useState('');
+  const [ownerBlocking, setOwnerBlocking] = useState(false);
+  const [ownerBlockRange, setOwnerBlockRange] = useState(undefined);
+  const [ownerBlockMessage, setOwnerBlockMessage] = useState('');
+  const [availabilityBlocks, setAvailabilityBlocks] = useState([]);
   const [form, setForm] = useState(null);
   const [reservationForm, setReservationForm] = useState({ checkIn: '', checkOut: '', numGuests: 1 });
 
@@ -195,11 +205,58 @@ export default function ApartmentDetailsPage({
 
   const canSubmitReservation = selectedNights >= Number(apartment?.minNights || 1);
 
+  const canSubmitOwnerBlock = Boolean(ownerBlockRange?.from && ownerBlockRange?.to && token);
+
   const dayPriceHint = useMemo(() => {
     const nightly = Number(apartment?.pricePerNight || 0);
     if (!nightly) return '—';
     return `€${Math.round(nightly)}`;
   }, [apartment?.pricePerNight]);
+
+  const ownerBlockStart = useMemo(
+    () => (ownerBlockRange?.from ? formatDateInput(ownerBlockRange.from) : ''),
+    [ownerBlockRange],
+  );
+
+  const ownerBlockEnd = useMemo(
+    () => (ownerBlockRange?.to ? formatDateInput(ownerBlockRange.to) : ''),
+    [ownerBlockRange],
+  );
+
+  function getAvailabilityWindowQuery() {
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    const to = addDays(from, 365);
+
+    const params = new URLSearchParams({
+      from: formatDateInput(from),
+      to: formatDateInput(to),
+    });
+
+    return params.toString();
+  }
+
+  async function loadCalendarAvailabilityData() {
+    setAvailabilityLoading(true);
+
+    try {
+      const query = getAvailabilityWindowQuery();
+      const data = await api.get(`/apartments/${apartmentId}/calendar-availability?${query}`);
+      setUnavailableRanges(data.unavailableRanges || []);
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }
+
+  async function loadOwnerAvailabilityBlocks() {
+    if (!isOwner || !token) {
+      setAvailabilityBlocks([]);
+      return;
+    }
+
+    const blocks = await api.get(`/apartments/${apartmentId}/availability-blocks`, token);
+    setAvailabilityBlocks(blocks || []);
+  }
 
   useEffect(() => {
     let ignore = false;
@@ -280,34 +337,13 @@ export default function ApartmentDetailsPage({
     let ignore = false;
 
     async function loadCalendarAvailability() {
-      if (isOwner) {
-        setUnavailableRanges([]);
-        return;
-      }
-
-      const from = new Date();
-      from.setHours(0, 0, 0, 0);
-      const to = new Date(from);
-      to.setDate(to.getDate() + 365);
-
       try {
-        setAvailabilityLoading(true);
-        const params = new URLSearchParams({
-          from: formatDateInput(from),
-          to: formatDateInput(to),
-        });
-
-        const data = await api.get(`/apartments/${apartmentId}/calendar-availability?${params.toString()}`);
+        await loadCalendarAvailabilityData();
 
         if (ignore) return;
-        setUnavailableRanges(data.unavailableRanges || []);
       } catch (err) {
         if (!ignore) {
           setFeedback(err.message, true);
-        }
-      } finally {
-        if (!ignore) {
-          setAvailabilityLoading(false);
         }
       }
     }
@@ -317,7 +353,27 @@ export default function ApartmentDetailsPage({
     return () => {
       ignore = true;
     };
-  }, [apartmentId, isOwner, setFeedback]);
+  }, [apartmentId, setFeedback]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadOwnerBlocks() {
+      try {
+        await loadOwnerAvailabilityBlocks();
+      } catch (err) {
+        if (!ignore) {
+          setFeedback(err.message, true);
+        }
+      }
+    }
+
+    void loadOwnerBlocks();
+
+    return () => {
+      ignore = true;
+    };
+  }, [apartmentId, isOwner, setFeedback, token]);
 
   function formatDate(date) {
     const parsed = new Date(date);
@@ -370,6 +426,51 @@ export default function ApartmentDetailsPage({
       setFeedback(err.message, true);
     } finally {
       setReserving(false);
+    }
+  }
+
+  async function createOwnerAvailabilityBlock(e) {
+    e.preventDefault();
+
+    if (!token) {
+      setFeedback('Za blokiranje termina morate biti prijavljeni kao vlasnik.', true);
+      return;
+    }
+
+    if (!ownerBlockRange?.from || !ownerBlockRange?.to) {
+      setOwnerBlockMessage('Odaberite početni i završni datum za blokirati.');
+      return;
+    }
+
+    try {
+      setOwnerBlocking(true);
+      const payload = {
+        startDate: formatDateInput(ownerBlockRange.from),
+        endDate: formatDateInput(addDays(ownerBlockRange.to, 1)),
+      };
+
+      await api.post(`/apartments/${apartmentId}/availability-blocks`, payload, token);
+      setOwnerBlockRange(undefined);
+      setOwnerBlockMessage('Blokirani termin je sada slobodan.');
+      await Promise.all([loadCalendarAvailabilityData(), loadOwnerAvailabilityBlocks()]);
+    } catch (err) {
+      setFeedback(err.message, true);
+    } finally {
+      setOwnerBlocking(false);
+    }
+  }
+
+  async function deleteOwnerAvailabilityBlock(blockId) {
+    if (!token) {
+      return;
+    }
+
+    try {
+      await api.del(`/apartments/${apartmentId}/availability-blocks/${blockId}`, token);
+      setOwnerBlockMessage('Blokada termina je obrisana.');
+      await Promise.all([loadCalendarAvailabilityData(), loadOwnerAvailabilityBlocks()]);
+    } catch (err) {
+      setFeedback(err.message, true);
     }
   }
 
@@ -434,6 +535,31 @@ export default function ApartmentDetailsPage({
       checkIn: formatDateInput(range.from),
       checkOut: range.to ? formatDateInput(range.to) : '',
     }));
+  }
+
+  function handleOwnerBlockDayClick(day, modifiers) {
+    if (!modifiers?.disabled) {
+      return;
+    }
+
+    setOwnerBlockMessage('Taj datum nije moguće blokirati jer je već zauzet ili blokiran.');
+  }
+
+  function handleOwnerBlockRangeSelect(range) {
+    if (!range?.from) {
+      setOwnerBlockRange(undefined);
+      setOwnerBlockMessage('');
+      return;
+    }
+
+    if (range.to && hasBlockedDatesInsideRange(range.from, range.to)) {
+      setOwnerBlockRange({ from: range.from });
+      setOwnerBlockMessage('Raspon uključuje zauzete ili već blokirane datume. Odaberite drugi raspon.');
+      return;
+    }
+
+    setOwnerBlockRange(range);
+    setOwnerBlockMessage('');
   }
 
   if (loading) {
@@ -601,6 +727,67 @@ export default function ApartmentDetailsPage({
           ))}
         </div>
       )}
+
+      {isOwner ? (
+        <section className="card">
+          <h3>Blokiranje termina za vlasnika</h3>
+          <div className="reservation-calendar-wrap">
+            <DayPicker
+              mode="range"
+              selected={ownerBlockRange}
+              onSelect={handleOwnerBlockRangeSelect}
+              onDayClick={handleOwnerBlockDayClick}
+              numberOfMonths={2}
+              disabled={disabledDateMatchers}
+              excludeDisabled
+            />
+            {availabilityLoading ? <p className="meta">Učitavanje dostupnosti...</p> : null}
+            <p className="meta">Odaberite raspon datuma koji želite blokirati za nove rezervacije.</p>
+            {ownerBlockMessage ? <p className="meta">{ownerBlockMessage}</p> : null}
+          </div>
+
+          <form onSubmit={createOwnerAvailabilityBlock} className="grid grid-4">
+            <label>
+              Početak blokade
+              <input
+                type="text"
+                value={ownerBlockStart}
+                readOnly
+                placeholder="Odaberite na kalendaru"
+                required
+              />
+            </label>
+            <label>
+              Kraj blokade
+              <input
+                type="text"
+                value={ownerBlockEnd}
+                readOnly
+                placeholder="Odaberite na kalendaru"
+                required
+              />
+            </label>
+            <button type="submit" disabled={ownerBlocking || !canSubmitOwnerBlock}>
+              {ownerBlocking ? 'Blokiranje...' : 'Blokiraj termin'}
+            </button>
+          </form>
+
+          <div className="list compact owner-blocks-list">
+            {availabilityBlocks.length ? availabilityBlocks.map((block) => (
+              <article key={block.id} className="list-item row between">
+                <div>
+                  <strong>{formatDate(block.startDate)} - {formatDate(addDays(new Date(block.endDate), -1))}</strong>
+                </div>
+                <button type="button" className="ghost" onClick={() => deleteOwnerAvailabilityBlock(block.id)}>
+                  Ukloni blokadu
+                </button>
+              </article>
+            )) : (
+              <p className="meta">Nema blokiranih termina.</p>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       {!isOwner ? (
         <section className="card">

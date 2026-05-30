@@ -299,6 +299,14 @@ a.notification-item:hover {
   color: #94a3b8;
 }
 
+.owner-blocks-list .list-item {
+  gap: 0.7rem;
+}
+
+.owner-blocks-list .ghost {
+  white-space: nowrap;
+}
+
 @media (max-width: 920px) {
   .grid-6,
   .grid-4,
