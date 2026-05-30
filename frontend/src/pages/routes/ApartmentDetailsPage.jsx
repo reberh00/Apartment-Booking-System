@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/style.css';
 import { api } from '../../api';
 
 const editableKeys = [
@@ -18,6 +20,41 @@ const editableKeys = [
 
 function formatCurrency(value) {
   return `${Number(value || 0).toFixed(2)} EUR`;
+}
+
+function formatDateInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateFromInput(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  parsed.setHours(0, 0, 0, 0);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function calculateNights(checkIn, checkOut) {
+  const from = parseDateFromInput(checkIn);
+  const to = parseDateFromInput(checkOut);
+
+  if (!from || !to || to <= from) {
+    return 0;
+  }
+
+  return Math.floor((to - from) / (1000 * 60 * 60 * 24));
+}
+
+function isDateInRange(date, range) {
+  if (!range?.from || !range?.to) return false;
+  return date >= range.from && date <= range.to;
 }
 
 function StatsLineChart({ data, dataKey, stroke, title, formatter }) {
@@ -89,7 +126,6 @@ export default function ApartmentDetailsPage({
   updateApartment,
   contentsOptions,
   createReservationForApartment,
-  checkApartmentAvailability,
   defaultBackPath,
 }) {
   const { apartmentId } = useParams();
@@ -102,6 +138,9 @@ export default function ApartmentDetailsPage({
   const [apartment, setApartment] = useState(null);
   const [apartmentStats, setApartmentStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [unavailableRanges, setUnavailableRanges] = useState([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [calendarSelectionMessage, setCalendarSelectionMessage] = useState('');
   const [form, setForm] = useState(null);
   const [reservationForm, setReservationForm] = useState({ checkIn: '', checkOut: '', numGuests: 1 });
 
@@ -114,6 +153,53 @@ export default function ApartmentDetailsPage({
     if (!user || !apartment) return false;
     return user.role === 'ADMIN' || apartment.owner?.id === user.id;
   }, [user, apartment]);
+
+  const selectedNights = useMemo(
+    () => calculateNights(reservationForm.checkIn, reservationForm.checkOut),
+    [reservationForm.checkIn, reservationForm.checkOut],
+  );
+
+  const estimatedTotal = useMemo(
+    () => selectedNights * Number(apartment?.pricePerNight || 0),
+    [apartment?.pricePerNight, selectedNights],
+  );
+
+  const selectedRange = useMemo(() => {
+    const from = parseDateFromInput(reservationForm.checkIn);
+    const to = parseDateFromInput(reservationForm.checkOut);
+
+    if (!from) {
+      return undefined;
+    }
+
+    if (!to) {
+      return { from };
+    }
+
+    return { from, to };
+  }, [reservationForm.checkIn, reservationForm.checkOut]);
+
+  const disabledDateMatchers = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const rangeMatchers = unavailableRanges
+      .map((range) => ({
+        from: parseDateFromInput(range.from),
+        to: parseDateFromInput(range.to),
+      }))
+      .filter((range) => range.from && range.to);
+
+    return [{ before: today }, ...rangeMatchers];
+  }, [unavailableRanges]);
+
+  const canSubmitReservation = selectedNights >= Number(apartment?.minNights || 1);
+
+  const dayPriceHint = useMemo(() => {
+    const nightly = Number(apartment?.pricePerNight || 0);
+    if (!nightly) return '—';
+    return `€${Math.round(nightly)}`;
+  }, [apartment?.pricePerNight]);
 
   useEffect(() => {
     let ignore = false;
@@ -190,6 +276,49 @@ export default function ApartmentDetailsPage({
     };
   }, [apartmentId, canViewStats, setFeedback, token]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadCalendarAvailability() {
+      if (isOwner) {
+        setUnavailableRanges([]);
+        return;
+      }
+
+      const from = new Date();
+      from.setHours(0, 0, 0, 0);
+      const to = new Date(from);
+      to.setDate(to.getDate() + 365);
+
+      try {
+        setAvailabilityLoading(true);
+        const params = new URLSearchParams({
+          from: formatDateInput(from),
+          to: formatDateInput(to),
+        });
+
+        const data = await api.get(`/apartments/${apartmentId}/calendar-availability?${params.toString()}`);
+
+        if (ignore) return;
+        setUnavailableRanges(data.unavailableRanges || []);
+      } catch (err) {
+        if (!ignore) {
+          setFeedback(err.message, true);
+        }
+      } finally {
+        if (!ignore) {
+          setAvailabilityLoading(false);
+        }
+      }
+    }
+
+    void loadCalendarAvailability();
+
+    return () => {
+      ignore = true;
+    };
+  }, [apartmentId, isOwner, setFeedback]);
+
   function formatDate(date) {
     const parsed = new Date(date);
     const day = String(parsed.getDate()).padStart(2, '0');
@@ -236,6 +365,7 @@ export default function ApartmentDetailsPage({
       setReserving(true);
       await createReservationForApartment(apartmentId, reservationForm);
       setReservationForm({ checkIn: '', checkOut: '', numGuests: 1 });
+      setCalendarSelectionMessage('');
     } catch (err) {
       setFeedback(err.message, true);
     } finally {
@@ -243,12 +373,67 @@ export default function ApartmentDetailsPage({
     }
   }
 
-  async function checkAvailability() {
-    try {
-      await checkApartmentAvailability(apartmentId, reservationForm.checkIn, reservationForm.checkOut);
-    } catch (err) {
-      setFeedback(err.message, true);
+  function hasBlockedDatesInsideRange(fromDate, toDate) {
+    const start = new Date(fromDate);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(toDate);
+    end.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      if (cursor < today) {
+        return true;
+      }
+
+      const isUnavailable = unavailableRanges.some((range) => {
+        const rangeStart = parseDateFromInput(range.from);
+        const rangeEnd = parseDateFromInput(range.to);
+        return rangeStart && rangeEnd && cursor >= rangeStart && cursor <= rangeEnd;
+      });
+
+      if (isUnavailable) {
+        return true;
+      }
     }
+
+    return false;
+  }
+
+  function handleDayClick(day, modifiers) {
+    if (!modifiers?.disabled) {
+      return;
+    }
+
+    setCalendarSelectionMessage('Odabrani datum nije dostupan. Molimo odaberite drugi raspon.');
+  }
+
+  function handleRangeSelect(range) {
+    if (!range?.from) {
+      setReservationForm((prev) => ({ ...prev, checkIn: '', checkOut: '' }));
+      setCalendarSelectionMessage('');
+      return;
+    }
+
+    if (range.to && hasBlockedDatesInsideRange(range.from, range.to)) {
+      setCalendarSelectionMessage('Raspon uključuje nedostupne datume. Odaberite drugi raspon.');
+      setReservationForm((prev) => ({
+        ...prev,
+        checkIn: formatDateInput(range.from),
+        checkOut: '',
+      }));
+      return;
+    }
+
+    setCalendarSelectionMessage('');
+
+    setReservationForm((prev) => ({
+      ...prev,
+      checkIn: formatDateInput(range.from),
+      checkOut: range.to ? formatDateInput(range.to) : '',
+    }));
   }
 
   if (loading) {
@@ -420,22 +605,51 @@ export default function ApartmentDetailsPage({
       {!isOwner ? (
         <section className="card">
           <h3>Rezerviraj ovaj apartman</h3>
+          <div className="reservation-calendar-wrap">
+            <DayPicker
+              mode="range"
+              selected={selectedRange}
+              onSelect={handleRangeSelect}
+              onDayClick={handleDayClick}
+              numberOfMonths={2}
+              disabled={disabledDateMatchers}
+              min={Number(apartment.minNights || 1)}
+              excludeDisabled
+              components={{
+                DayContent: ({ date }) => {
+                  const isSelected = isDateInRange(date, selectedRange);
+                  return (
+                    <span className={`calendar-day-content ${isSelected ? 'calendar-day-selected' : ''}`}>
+                      <span>{date.getDate()}</span>
+                      <span className="calendar-day-price">{dayPriceHint}</span>
+                    </span>
+                  );
+                },
+              }}
+            />
+            {availabilityLoading ? <p className="meta">Učitavanje nedostupnih termina...</p> : null}
+            <p className="meta">Nedostupni termini su označeni i ne mogu se odabrati.</p>
+            {calendarSelectionMessage ? <p className="meta">{calendarSelectionMessage}</p> : null}
+          </div>
+
           <form onSubmit={reserveApartment} className="grid grid-4">
             <label>
               Check-in
               <input
-                type="date"
+                type="text"
                 value={reservationForm.checkIn}
-                onChange={(e) => setReservationForm((prev) => ({ ...prev, checkIn: e.target.value }))}
+                readOnly
+                placeholder="Odaberite na kalendaru"
                 required
               />
             </label>
             <label>
               Check-out
               <input
-                type="date"
+                type="text"
                 value={reservationForm.checkOut}
-                onChange={(e) => setReservationForm((prev) => ({ ...prev, checkOut: e.target.value }))}
+                readOnly
+                placeholder="Odaberite na kalendaru"
                 required
               />
             </label>
@@ -449,8 +663,16 @@ export default function ApartmentDetailsPage({
                 required
               />
             </label>
-            <button type="submit" disabled={reserving}>{reserving ? 'Slanje...' : 'Pošalji rezervaciju'}</button>
-            <button type="button" className="ghost" onClick={checkAvailability}>Provjeri dostupnost</button>
+            <button type="submit" disabled={reserving || !canSubmitReservation}>
+              {reserving ? 'Slanje...' : 'Pošalji rezervaciju'}
+            </button>
+            <div className="reservation-summary">
+              <p><strong>Noćenja:</strong> {selectedNights}</p>
+              <p><strong>Procijenjeni iznos:</strong> {formatCurrency(estimatedTotal)}</p>
+              {selectedNights > 0 && selectedNights < Number(apartment.minNights || 1) ? (
+                <p className="meta">Minimalni boravak za ovaj apartman je {apartment.minNights} noći.</p>
+              ) : null}
+            </div>
           </form>
         </section>
       ) : null}

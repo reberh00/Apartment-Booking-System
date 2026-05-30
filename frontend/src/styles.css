@@ -247,6 +247,58 @@ a.notification-item:hover {
   margin: 0 0 0.5rem;
 }
 
+.reservation-calendar-wrap {
+  margin-top: 0.75rem;
+  margin-bottom: 0.9rem;
+  border: 1px solid #d8e0ef;
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: #f8fafc;
+}
+
+.reservation-summary {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+}
+
+.reservation-summary p {
+  margin: 0.2rem 0;
+}
+
+.reservation-calendar-wrap .rdp {
+  --rdp-accent-color: #2563eb;
+  --rdp-range_middle-background-color: #dbeafe;
+  margin: 0;
+}
+
+.reservation-calendar-wrap .rdp-day_disabled {
+  color: #94a3b8;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.calendar-day-content {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.calendar-day-price {
+  font-size: 0.55rem;
+  color: #64748b;
+}
+
+.calendar-day-selected .calendar-day-price {
+  color: #e2e8f0;
+}
+
+.reservation-calendar-wrap .rdp-day_disabled .calendar-day-price {
+  color: #94a3b8;
+}
+
 @media (max-width: 920px) {
   .grid-6,
   .grid-4,

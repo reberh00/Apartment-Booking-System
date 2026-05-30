@@ -54,6 +54,56 @@ function monthKey(year, month) {
   return `${year}-${mm}`;
 }
 
+function parseDateOnly(value) {
+  const parsed = new Date(value);
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+function toDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function mergeUnavailableRanges(ranges) {
+  if (!ranges.length) {
+    return [];
+  }
+
+  const sortedRanges = ranges
+    .map((range) => ({
+      from: parseDateOnly(range.from),
+      to: parseDateOnly(range.to),
+    }))
+    .sort((a, b) => a.from - b.from);
+
+  const merged = [sortedRanges[0]];
+
+  for (let index = 1; index < sortedRanges.length; index += 1) {
+    const current = sortedRanges[index];
+    const last = merged[merged.length - 1];
+    const contiguousBoundary = addDays(last.to, 1);
+
+    if (current.from <= contiguousBoundary) {
+      if (current.to > last.to) {
+        last.to = current.to;
+      }
+    } else {
+      merged.push(current);
+    }
+  }
+
+  return merged;
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const { city, checkIn, checkOut, guests, minPrice, maxPrice, page = 1, limit = 12 } = req.query;
@@ -278,6 +328,90 @@ router.get('/:id([0-9a-fA-F-]{36})/stats', authenticate, authorize('OWNER', 'ADM
       totalIncome,
       monthlyTrend,
       yearlyTrend,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id([0-9a-fA-F-]{36})/calendar-availability', async (req, res, next) => {
+  try {
+    const apartment = await prisma.apartment.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        minNights: true,
+        cancellationPolicy: true,
+        pricePerNight: true,
+      },
+    });
+
+    if (!apartment) {
+      return next(createError('Apartman nije pronađen', 404));
+    }
+
+    const requestedFrom = req.query.from ? parseDateOnly(req.query.from) : startOfDay(new Date());
+    const requestedTo = req.query.to ? parseDateOnly(req.query.to) : addDays(requestedFrom, 365);
+
+    if (Number.isNaN(requestedFrom.getTime()) || Number.isNaN(requestedTo.getTime())) {
+      return next(createError('Neispravan datum. Koristite format YYYY-MM-DD.', 400));
+    }
+
+    if (requestedFrom >= requestedTo) {
+      return next(createError('Parametar "from" mora biti prije parametra "to".', 400));
+    }
+
+    const [activeReservations, availabilityBlocks] = await prisma.$transaction([
+      prisma.reservation.findMany({
+        where: {
+          apartmentId: req.params.id,
+          status: { in: ['PENDING', 'CONFIRMED'] },
+          checkIn: { lt: requestedTo },
+          checkOut: { gt: requestedFrom },
+        },
+        select: {
+          checkIn: true,
+          checkOut: true,
+        },
+      }),
+      prisma.availabilityBlock.findMany({
+        where: {
+          apartmentId: req.params.id,
+          startDate: { lt: requestedTo },
+          endDate: { gt: requestedFrom },
+        },
+        select: {
+          startDate: true,
+          endDate: true,
+        },
+      }),
+    ]);
+
+    const rawUnavailableRanges = [
+      ...activeReservations.map((reservation) => ({
+        from: reservation.checkIn,
+        to: addDays(reservation.checkOut, -1),
+      })),
+      ...availabilityBlocks.map((block) => ({
+        from: block.startDate,
+        to: addDays(block.endDate, -1),
+      })),
+    ].filter((range) => range.to >= range.from);
+
+    const unavailableRanges = mergeUnavailableRanges(rawUnavailableRanges)
+      .map((range) => ({
+        from: toDateString(range.from),
+        to: toDateString(range.to),
+      }));
+
+    res.json({
+      apartmentId: apartment.id,
+      minNights: apartment.minNights,
+      cancellationPolicy: apartment.cancellationPolicy,
+      pricePerNight: Number(apartment.pricePerNight || 0),
+      from: toDateString(requestedFrom),
+      to: toDateString(requestedTo),
+      unavailableRanges,
     });
   } catch (err) {
     next(err);
