@@ -1,5 +1,6 @@
 const { ZodError } = require('zod');
 const { Prisma } = require('@prisma/client');
+const { MulterError } = require('multer');
 
 const errorHandler = (err, req, res, next) => {
   console.error(err);
@@ -9,6 +10,14 @@ const errorHandler = (err, req, res, next) => {
       error: 'Greška validacije',
       details: err.errors.map(e => ({ field: e.path.join('.'), message: e.message })),
     });
+  }
+
+  if (err instanceof MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'Slika je prevelika. Maksimalna veličina je 5 MB.' });
+    }
+
+    return res.status(400).json({ error: 'Neuspješan prijenos datoteke.' });
   }
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {

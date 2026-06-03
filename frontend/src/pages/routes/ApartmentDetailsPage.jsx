@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/style.css';
-import { api } from '../../api';
+import { api, assetUrl } from '../../api';
 
 const editableKeys = [
   'title',
@@ -151,6 +151,9 @@ export default function ApartmentDetailsPage({
   const [ownerBlockRange, setOwnerBlockRange] = useState(undefined);
   const [ownerBlockMessage, setOwnerBlockMessage] = useState('');
   const [availabilityBlocks, setAvailabilityBlocks] = useState([]);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const photoInputRef = useRef(null);
   const [form, setForm] = useState(null);
   const [reservationForm, setReservationForm] = useState({ checkIn: '', checkOut: '', numGuests: 1 });
 
@@ -223,6 +226,11 @@ export default function ApartmentDetailsPage({
     [ownerBlockRange],
   );
 
+  const apartmentPhotos = useMemo(
+    () => (apartment?.photos || []).slice().sort((a, b) => a.displayOrder - b.displayOrder),
+    [apartment?.photos],
+  );
+
   function getAvailabilityWindowQuery() {
     const from = new Date();
     from.setHours(0, 0, 0, 0);
@@ -245,6 +253,81 @@ export default function ApartmentDetailsPage({
       setUnavailableRanges(data.unavailableRanges || []);
     } finally {
       setAvailabilityLoading(false);
+    }
+  }
+
+  async function refreshApartmentDetails() {
+    const refreshed = await api.get(`/apartments/${apartmentId}`);
+    setApartment(refreshed);
+  }
+
+  async function addApartmentPhoto(e) {
+    e.preventDefault();
+
+    if (!token || !photoFile) {
+      return;
+    }
+
+    try {
+      setPhotoLoading(true);
+      const formData = new FormData();
+      formData.append('photo', photoFile);
+      await api.upload(`/apartments/${apartmentId}/photos`, formData, token);
+      setPhotoFile(null);
+      if (photoInputRef.current) {
+        photoInputRef.current.value = '';
+      }
+      await refreshApartmentDetails();
+    } catch (err) {
+      setFeedback(err.message, true);
+    } finally {
+      setPhotoLoading(false);
+    }
+  }
+
+  async function deleteApartmentPhoto(photoId) {
+    if (!token) {
+      return;
+    }
+
+    try {
+      setPhotoLoading(true);
+      await api.del(`/apartments/${apartmentId}/photos/${photoId}`, token);
+      await refreshApartmentDetails();
+    } catch (err) {
+      setFeedback(err.message, true);
+    } finally {
+      setPhotoLoading(false);
+    }
+  }
+
+  async function reorderApartmentPhoto(photoId, direction) {
+    if (!token || apartmentPhotos.length < 2) {
+      return;
+    }
+
+    const currentIndex = apartmentPhotos.findIndex((photo) => photo.id === photoId);
+    if (currentIndex === -1) {
+      return;
+    }
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= apartmentPhotos.length) {
+      return;
+    }
+
+    const ordered = apartmentPhotos.map((photo) => photo.id);
+    const [moved] = ordered.splice(currentIndex, 1);
+    ordered.splice(targetIndex, 0, moved);
+
+    try {
+      setPhotoLoading(true);
+      await api.patch(`/apartments/${apartmentId}/photos/reorder`, { photoIds: ordered }, token);
+      await refreshApartmentDetails();
+    } catch (err) {
+      setFeedback(err.message, true);
+    } finally {
+      setPhotoLoading(false);
     }
   }
 
@@ -438,7 +521,7 @@ export default function ApartmentDetailsPage({
     }
 
     if (!ownerBlockRange?.from || !ownerBlockRange?.to) {
-      setOwnerBlockMessage('Odaberite početni i završni datum za blokirati.');
+      setOwnerBlockMessage('Odaberite početni i završni datum za blokadu.');
       return;
     }
 
@@ -451,7 +534,7 @@ export default function ApartmentDetailsPage({
 
       await api.post(`/apartments/${apartmentId}/availability-blocks`, payload, token);
       setOwnerBlockRange(undefined);
-      setOwnerBlockMessage('Blokirani termin je sada slobodan.');
+      setOwnerBlockMessage('Termin je uspješno blokiran.');
       await Promise.all([loadCalendarAvailabilityData(), loadOwnerAvailabilityBlocks()]);
     } catch (err) {
       setFeedback(err.message, true);
@@ -592,6 +675,71 @@ export default function ApartmentDetailsPage({
           <button type="button" className="ghost" onClick={() => navigate(defaultBackPath)}>Natrag</button>
         </div>
       </div>
+
+      <section className="apartment-photos-strip">
+        {apartmentPhotos.length ? apartmentPhotos.map((photo) => (
+          <img key={photo.id} src={assetUrl(photo.url)} alt={apartment.title} className="apartment-photo" />
+        )) : (
+          <div className="apartment-photo apartment-photo-placeholder">Nema fotografija apartmana</div>
+        )}
+      </section>
+
+      {isOwner ? (
+        <section className="card">
+          <h3>Fotografije apartmana</h3>
+          <form onSubmit={addApartmentPhoto} className="row gap">
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+            />
+            <button type="submit" disabled={photoLoading || !photoFile}>
+              {photoLoading ? 'Prijenos...' : 'Učitaj fotografiju'}
+            </button>
+          </form>
+          <p className="meta">Podržani formati: JPEG, PNG, WebP, GIF. Maksimalno 5 MB. Prva fotografija se prikazuje kao naslovna.</p>
+
+          <div className="list compact owner-photo-list">
+            {apartmentPhotos.length ? apartmentPhotos.map((photo, index) => (
+              <article key={photo.id} className="list-item row between">
+                <div className="row gap">
+                  <img src={assetUrl(photo.url)} alt={`${apartment.title} ${index + 1}`} className="owner-photo-thumb" />
+                  <span className="meta">#{index + 1}</span>
+                </div>
+                <div className="row gap">
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={photoLoading || index === 0}
+                    onClick={() => reorderApartmentPhoto(photo.id, 'up')}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={photoLoading || index === apartmentPhotos.length - 1}
+                    onClick={() => reorderApartmentPhoto(photo.id, 'down')}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={photoLoading}
+                    onClick={() => deleteApartmentPhoto(photo.id)}
+                  >
+                    Obriši
+                  </button>
+                </div>
+              </article>
+            )) : (
+              <p className="meta">Nema učitanih fotografija.</p>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       {editMode && isOwner ? (
         <form onSubmit={saveApartment} className="grid grid-3">

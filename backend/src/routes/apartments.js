@@ -1,8 +1,13 @@
+const fs = require('fs');
 const router = require('express').Router();
 const { z } = require('zod');
 const prisma = require('../utils/prisma');
 const { authenticate, authorize } = require('../middleware/auth');
 const { createError } = require('../middleware/errorHandler');
+const { uploadApartmentPhoto, apartmentPhotoFilePath } = require('../middleware/upload');
+
+const APARTMENT_PHOTO_URL_PREFIX = '/uploads/apartments/';
+const MAX_PHOTOS_PER_APARTMENT = 15;
 
 const apartmentSchema = z.object({
   title:              z.string().min(5),
@@ -25,6 +30,10 @@ const availabilityBlockSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
+const photoReorderSchema = z.object({
+  photoIds: z.array(z.string().uuid()).min(1),
+});
+
 async function isApartmentOwner(apartmentId, user) {
   const apartment = await prisma.apartment.findUnique({ where: { id: apartmentId } });
   if (!apartment) {
@@ -36,6 +45,19 @@ async function isApartmentOwner(apartmentId, user) {
   }
 
   return apartment;
+}
+
+function removeLocalPhotoFile(url) {
+  if (!url || !url.startsWith(APARTMENT_PHOTO_URL_PREFIX)) {
+    return;
+  }
+
+  const filename = url.slice(APARTMENT_PHOTO_URL_PREFIX.length);
+  if (!filename) {
+    return;
+  }
+
+  fs.promises.unlink(apartmentPhotoFilePath(filename)).catch(() => {});
 }
 
 function startOfDay(date) {
@@ -165,6 +187,7 @@ router.get('/', async (req, res, next) => {
         take: parseInt(limit),
         include: {
           owner: { select: { id: true, firstName: true, lastName: true } },
+          photos:   { orderBy: { displayOrder: 'asc' }, take: 1 },
           reviews:  { select: { rating: true } },
           contents: { include: { content: true } },
         },
@@ -423,6 +446,7 @@ router.get('/owner/mine', authenticate, authorize('OWNER'), async (req, res, nex
     const apartments = await prisma.apartment.findMany({
       where: { ownerId: req.user.id },
       include: {
+        photos:   { orderBy: { displayOrder: 'asc' }, take: 1 },
         reviews:  { select: { rating: true } },
         contents: { include: { content: true } },
         _count:   { select: { reservations: true } },
@@ -456,6 +480,7 @@ router.get('/:id', async (req, res, next) => {
       where: { id: req.params.id },
       include: {
         owner:    { select: { id: true, firstName: true, lastName: true, avatarUrl: true, createdAt: true } },
+        photos:   { orderBy: { displayOrder: 'asc' } },
         contents: { include: { content: true } },
         reviews:  {
           include: { guest: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } } },
@@ -536,7 +561,7 @@ router.put('/:id', authenticate, authorize('OWNER', 'ADMIN'), async (req, res, n
       return tx.apartment.update({
         where:   { id: req.params.id },
         data,
-        include: { contents: { include: { content: true } } },
+        include: { contents: { include: { content: true } }, photos: true },
       });
     });
 
@@ -557,7 +582,13 @@ router.delete('/:id', authenticate, authorize('OWNER', 'ADMIN'), async (req, res
       return next(createError('Nemate ovlasti za ovaj apartman', 403));
     }
 
+    const photos = await prisma.apartmentPhoto.findMany({
+      where: { apartmentId: req.params.id },
+      select: { url: true },
+    });
+
     await prisma.apartment.delete({ where: { id: req.params.id } });
+    photos.forEach((photo) => removeLocalPhotoFile(photo.url));
     res.json({ message: 'Apartman obrisan' });
   } catch (err) {
     next(err);
@@ -641,6 +672,95 @@ router.delete('/:id/availability-blocks/:blockId', authenticate, authorize('OWNE
 
     await prisma.availabilityBlock.delete({ where: { id: req.params.blockId } });
     res.json({ message: 'Blokada obrisana' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/photos', authenticate, authorize('OWNER', 'ADMIN'), uploadApartmentPhoto, async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return next(createError('Slika je obavezna (polje "photo").', 400));
+    }
+
+    await isApartmentOwner(req.params.id, req.user);
+
+    const photoCount = await prisma.apartmentPhoto.count({ where: { apartmentId: req.params.id } });
+    if (photoCount >= MAX_PHOTOS_PER_APARTMENT) {
+      removeLocalPhotoFile(`${APARTMENT_PHOTO_URL_PREFIX}${req.file.filename}`);
+      return next(createError(`Dosegnut je maksimalni broj fotografija (${MAX_PHOTOS_PER_APARTMENT}).`, 409));
+    }
+
+    const latestPhoto = await prisma.apartmentPhoto.findFirst({
+      where: { apartmentId: req.params.id },
+      orderBy: { displayOrder: 'desc' },
+    });
+
+    const nextDisplayOrder = latestPhoto ? latestPhoto.displayOrder + 1 : 0;
+
+    const photo = await prisma.apartmentPhoto.create({
+      data: {
+        apartmentId: req.params.id,
+        url: `${APARTMENT_PHOTO_URL_PREFIX}${req.file.filename}`,
+        displayOrder: nextDisplayOrder,
+      },
+    });
+
+    res.status(201).json(photo);
+  } catch (err) {
+    if (req.file) {
+      removeLocalPhotoFile(`${APARTMENT_PHOTO_URL_PREFIX}${req.file.filename}`);
+    }
+    next(err);
+  }
+});
+
+router.delete('/:id/photos/:photoId', authenticate, authorize('OWNER', 'ADMIN'), async (req, res, next) => {
+  try {
+    await isApartmentOwner(req.params.id, req.user);
+
+    const photo = await prisma.apartmentPhoto.findUnique({ where: { id: req.params.photoId } });
+    if (!photo || photo.apartmentId !== req.params.id) {
+      return next(createError('Fotografija nije pronađena', 404));
+    }
+
+    await prisma.apartmentPhoto.delete({ where: { id: req.params.photoId } });
+    removeLocalPhotoFile(photo.url);
+    res.json({ message: 'Fotografija obrisana' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/:id/photos/reorder', authenticate, authorize('OWNER', 'ADMIN'), async (req, res, next) => {
+  try {
+    const { photoIds } = photoReorderSchema.parse(req.body);
+    await isApartmentOwner(req.params.id, req.user);
+
+    const uniquePhotoIds = [...new Set(photoIds)];
+    if (uniquePhotoIds.length !== photoIds.length) {
+      return next(createError('Lista fotografija sadrži duplikate.', 400));
+    }
+
+    const photos = await prisma.apartmentPhoto.findMany({
+      where: { apartmentId: req.params.id },
+      select: { id: true },
+    });
+
+    if (photos.length !== photoIds.length || !photos.every((photo) => photoIds.includes(photo.id))) {
+      return next(createError('Lista mora sadržavati sve fotografije apartmana.', 400));
+    }
+
+    await prisma.$transaction(
+      photoIds.map((photoId, index) =>
+        prisma.apartmentPhoto.update({
+          where: { id: photoId },
+          data: { displayOrder: index },
+        }),
+      ),
+    );
+
+    res.json({ message: 'Redoslijed fotografija je ažuriran' });
   } catch (err) {
     next(err);
   }

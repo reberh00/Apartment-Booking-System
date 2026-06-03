@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { assetUrl } from '../../api';
 
 export default function OwnerApartmentsSection({ myApartments, statusBadgeClass }) {
   return (
@@ -10,6 +11,11 @@ export default function OwnerApartmentsSection({ myApartments, statusBadgeClass 
       <div className="list">
         {myApartments.map((apt) => (
           <article key={apt.id} className="list-item">
+            {apt.photos?.[0]?.url ? (
+              <img src={assetUrl(apt.photos[0].url)} alt={apt.title} className="apartment-list-thumb" />
+            ) : (
+              <div className="apartment-list-thumb apartment-list-thumb-placeholder">Nema fotografije</div>
+            )}
             <div className="row between">
               <h3>{apt.title}</h3>
               <span className={statusBadgeClass(apt.status)}>{apt.status}</span>

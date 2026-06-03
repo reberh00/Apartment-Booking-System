@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
+const { UPLOAD_ROOT } = require('./middleware/upload');
+
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const apartmentRoutes = require('./routes/apartments');
@@ -20,6 +22,15 @@ const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(UPLOAD_ROOT),
+);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);

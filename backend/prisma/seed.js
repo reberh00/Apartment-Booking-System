@@ -1,6 +1,10 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+const fs = require('fs');
+const path = require('path');
+const zlib = require('zlib');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const { APARTMENT_PHOTO_DIR } = require('../src/middleware/upload');
 const prisma = new PrismaClient();
 
 const IDS = {
@@ -21,6 +25,14 @@ const IDS = {
   },
   reviews: {
     rev1: '50000000-0000-0000-0000-000000000001',
+  },
+  photos: {
+    apt1p1: '80000000-0000-0000-0000-000000000001',
+    apt1p2: '80000000-0000-0000-0000-000000000002',
+    apt1p3: '80000000-0000-0000-0000-000000000003',
+    apt2p1: '80000000-0000-0000-0000-000000000004',
+    apt2p2: '80000000-0000-0000-0000-000000000005',
+    apt3p1: '80000000-0000-0000-0000-000000000006',
   },
   messages: {
     m1: '60000000-0000-0000-0000-000000000001',
@@ -250,6 +262,31 @@ async function main() {
       where: { apartmentId_contentId: { apartmentId, contentId } },
       update: {},
       create: { apartmentId, contentId },
+    });
+  }
+
+  const photoDefinitions = [
+    { id: IDS.photos.apt1p1, apartmentId: IDS.apartments.apt1, file: 'seed-apt1-1.jpeg', displayOrder: 0 },
+    { id: IDS.photos.apt1p2, apartmentId: IDS.apartments.apt1, file: 'seed-apt1-2.jfif',  displayOrder: 1 },
+    { id: IDS.photos.apt1p3, apartmentId: IDS.apartments.apt1, file: 'seed-apt1-3.jfif', displayOrder: 2 },
+    { id: IDS.photos.apt2p1, apartmentId: IDS.apartments.apt2, file: 'seed-apt2-1.webpg', displayOrder: 0 },
+    { id: IDS.photos.apt2p2, apartmentId: IDS.apartments.apt2, file: 'seed-apt2-2.jfif',  displayOrder: 1 },
+    { id: IDS.photos.apt3p1, apartmentId: IDS.apartments.apt3, file: 'seed-apt3-1.webpg', displayOrder: 0 },
+  ];
+
+  for (const definition of photoDefinitions) {
+    const url = `/uploads/apartments/${definition.file}`;
+    const photo = {
+      id: definition.id,
+      apartmentId: definition.apartmentId,
+      url,
+      displayOrder: definition.displayOrder,
+    };
+
+    await prisma.apartmentPhoto.upsert({
+      where: { id: photo.id },
+      update: photo,
+      create: photo,
     });
   }
 

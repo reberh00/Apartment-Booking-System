@@ -141,3 +141,9 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Uploaded files (keep folder structure, ignore uploaded content)
+/uploads/*
+!/uploads/apartments/
+/uploads/apartments/*
+!/uploads/apartments/.gitkeep
