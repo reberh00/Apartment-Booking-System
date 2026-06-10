@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { assetUrl } from '../../api';
+import { assetUrl } from '../api';
 
 export default function PublicSearchSection({ search, setSearch, loadApartments, apartmentsResult }) {
   return (

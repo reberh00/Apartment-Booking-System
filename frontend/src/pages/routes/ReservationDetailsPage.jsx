@@ -1,19 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../../api';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { api } from "../../api";
+import { useAuth } from "../../context/AuthContext";
+import { useFeedback } from "../../context/FeedbackContext";
+import { statusBadgeClass } from "../../utils/status";
 
-export default function ReservationDetailsPage({ user, token, setFeedback, statusBadgeClass, updateReservationStatus }) {
+export default function ReservationDetailsPage() {
+  const { user, token } = useAuth();
+  const { setFeedback } = useFeedback();
   const { reservationId } = useParams();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [reservation, setReservation] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [messageText, setMessageText] = useState('');
+  const [messageText, setMessageText] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
   const [submittingReview, setSubmittingReview] = useState(false);
-  const [replyForm, setReplyForm] = useState('');
+  const [replyForm, setReplyForm] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
 
   const isOwner = useMemo(() => {
@@ -26,7 +31,7 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
     return reservation.guestId === user.id;
   }, [reservation, user]);
 
-  const backPath = isOwner ? '/app/owner/reservations' : '/app/reservations/my';
+  const backPath = isOwner ? "/app/owner/reservations" : "/app/reservations/my";
 
   useEffect(() => {
     let ignore = false;
@@ -42,7 +47,7 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
         if (ignore) return;
 
         setReservation(reservationData);
-        setReplyForm(reservationData.review?.ownerReply || '');
+        setReplyForm(reservationData.review?.ownerReply || "");
         setMessages(messageData);
       } catch (err) {
         if (!ignore) {
@@ -66,10 +71,15 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
     if (!reservation) return;
 
     try {
-      await updateReservationStatus(reservation.id, status);
+      await api.patch(
+        `/reservations/${reservation.id}/status`,
+        { status },
+        token,
+      );
+      setFeedback("Status rezervacije je promijenjen.");
       setReservation((prev) => (prev ? { ...prev, status } : prev));
-    } catch {
-      // feedback is handled in App updateReservationStatus
+    } catch (err) {
+      setFeedback(err.message, true);
     }
   }
 
@@ -79,13 +89,17 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
 
     try {
       setSendingMessage(true);
-      await api.post('/messages', {
-        reservationId,
-        content: messageText,
-      }, token);
+      await api.post(
+        "/messages",
+        {
+          reservationId,
+          content: messageText,
+        },
+        token,
+      );
       const messageData = await api.get(`/messages/${reservationId}`, token);
       setMessages(messageData);
-      setMessageText('');
+      setMessageText("");
     } catch (err) {
       setFeedback(err.message, true);
     } finally {
@@ -99,15 +113,21 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
 
     try {
       setSubmittingReview(true);
-      const createdReview = await api.post('/reviews', {
-        reservationId: reservation.id,
-        rating: Number(reviewForm.rating),
-        comment: reviewForm.comment,
-      }, token);
+      const createdReview = await api.post(
+        "/reviews",
+        {
+          reservationId: reservation.id,
+          rating: Number(reviewForm.rating),
+          comment: reviewForm.comment,
+        },
+        token,
+      );
 
-      setReservation((prev) => (prev ? { ...prev, review: createdReview } : prev));
-      setReviewForm({ rating: 5, comment: '' });
-      setFeedback('Recenzija je spremljena.');
+      setReservation((prev) =>
+        prev ? { ...prev, review: createdReview } : prev,
+      );
+      setReviewForm({ rating: 5, comment: "" });
+      setFeedback("Recenzija je spremljena.");
     } catch (err) {
       setFeedback(err.message, true);
     } finally {
@@ -121,20 +141,28 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
 
     try {
       setSubmittingReply(true);
-      const updatedReview = await api.patch(`/reviews/${reservation.review.id}/reply`, {
-        reply: replyForm.trim(),
-      }, token);
-
-      setReservation((prev) => (prev ? {
-        ...prev,
-        review: {
-          ...prev.review,
-          ownerReply: updatedReview.ownerReply,
+      const updatedReview = await api.patch(
+        `/reviews/${reservation.review.id}/reply`,
+        {
+          reply: replyForm.trim(),
         },
-      } : prev));
+        token,
+      );
 
-      setReplyForm(updatedReview.ownerReply || '');
-      setFeedback('Odgovor na recenziju je spremljen.');
+      setReservation((prev) =>
+        prev
+          ? {
+              ...prev,
+              review: {
+                ...prev.review,
+                ownerReply: updatedReview.ownerReply,
+              },
+            }
+          : prev,
+      );
+
+      setReplyForm(updatedReview.ownerReply || "");
+      setFeedback("Odgovor na recenziju je spremljen.");
     } catch (err) {
       setFeedback(err.message, true);
     } finally {
@@ -154,7 +182,9 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
     return (
       <section className="card">
         <h2>Rezervacija nije pronađena.</h2>
-        <button type="button" onClick={() => navigate(backPath)}>Natrag na rezervacije</button>
+        <button type="button" onClick={() => navigate(backPath)}>
+          Natrag na rezervacije
+        </button>
       </section>
     );
   }
@@ -163,50 +193,93 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
     <section className="card">
       <div className="row between">
         <h2>Detalji rezervacije</h2>
-        <button type="button" className="ghost" onClick={() => navigate(backPath)}>Natrag</button>
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => navigate(backPath)}
+        >
+          Natrag
+        </button>
       </div>
 
       <div className="list compact">
         <article className="list-item">
-          <p><strong>ID:</strong> {reservation.id}</p>
-          <p><strong>Apartman:</strong> {reservation.apartment?.title || reservation.apartmentId}</p>
+          <p>
+            <strong>ID:</strong> {reservation.id}
+          </p>
+          <p>
+            <strong>Apartman:</strong>{" "}
+            {reservation.apartment?.title || reservation.apartmentId}
+          </p>
 
           {isOwner ? (
             <>
-              <p><strong>Gost:</strong> {reservation.guest?.firstName} {reservation.guest?.lastName}</p>
-              <p><strong>Kontakt gosta:</strong> {reservation.guest?.email || '-'}</p>
+              <p>
+                <strong>Gost:</strong> {reservation.guest?.firstName}{" "}
+                {reservation.guest?.lastName}
+              </p>
+              <p>
+                <strong>Kontakt gosta:</strong>{" "}
+                {reservation.guest?.email || "-"}
+              </p>
             </>
           ) : null}
 
           {isGuest ? (
             <>
-              <p><strong>Vlasnik:</strong> {reservation.apartment?.owner?.firstName} {reservation.apartment?.owner?.lastName}</p>
-              <p><strong>Kontakt vlasnika:</strong> {reservation.apartment?.owner?.email || '-'}</p>
-              <p><strong>Telefon vlasnika:</strong> {reservation.apartment?.owner?.phone || '-'}</p>
+              <p>
+                <strong>Vlasnik:</strong>{" "}
+                {reservation.apartment?.owner?.firstName}{" "}
+                {reservation.apartment?.owner?.lastName}
+              </p>
+              <p>
+                <strong>Kontakt vlasnika:</strong>{" "}
+                {reservation.apartment?.owner?.email || "-"}
+              </p>
+              <p>
+                <strong>Telefon vlasnika:</strong>{" "}
+                {reservation.apartment?.owner?.phone || "-"}
+              </p>
             </>
           ) : null}
 
-          <p><strong>Status:</strong> <span className={statusBadgeClass(reservation.status)}>{reservation.status}</span></p>
-          <p><strong>Check-in:</strong> {String(reservation.checkIn).slice(0, 10)}</p>
-          <p><strong>Check-out:</strong> {String(reservation.checkOut).slice(0, 10)}</p>
-          <p><strong>Broj gostiju:</strong> {reservation.numGuests}</p>
-          <p><strong>Ukupna cijena:</strong> {reservation.totalPrice}</p>
-          {reservation.review ? <p><strong>Recenzija:</strong> {reservation.review.rating}/5</p> : null}
+          <p>
+            <strong>Status:</strong>{" "}
+            <span className={statusBadgeClass(reservation.status)}>
+              {reservation.status}
+            </span>
+          </p>
+          <p>
+            <strong>Check-in:</strong>{" "}
+            {String(reservation.checkIn).slice(0, 10)}
+          </p>
+          <p>
+            <strong>Check-out:</strong>{" "}
+            {String(reservation.checkOut).slice(0, 10)}
+          </p>
+          <p>
+            <strong>Broj gostiju:</strong> {reservation.numGuests}
+          </p>
+          <p>
+            <strong>Ukupna cijena:</strong> {reservation.totalPrice}
+          </p>
+          {reservation.review ? (
+            <p>
+              <strong>Recenzija:</strong> {reservation.review.rating}/5
+            </p>
+          ) : null}
         </article>
       </div>
 
-      {isOwner && reservation.status === 'PENDING' ? (
+      {isOwner && reservation.status === "PENDING" ? (
         <div className="row gap">
-          <button
-            type="button"
-            onClick={() => changeStatus('CONFIRMED')}
-          >
+          <button type="button" onClick={() => changeStatus("CONFIRMED")}>
             Potvrdi
           </button>
           <button
             type="button"
             className="ghost"
-            onClick={() => changeStatus('REJECTED')}
+            onClick={() => changeStatus("REJECTED")}
           >
             Odbij
           </button>
@@ -217,28 +290,42 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
         <div className="row gap">
           <button
             type="button"
-            onClick={() => changeStatus('CANCELLED')}
+            onClick={() => changeStatus("CANCELLED")}
             disabled={!reservation.canGuestCancel}
-            title={!reservation.canGuestCancel ? reservation.guestCancellationReason || '' : ''}
+            title={
+              !reservation.canGuestCancel
+                ? reservation.guestCancellationReason || ""
+                : ""
+            }
           >
             Otkaži rezervaciju
           </button>
-          {!reservation.canGuestCancel && reservation.guestCancellationReason ? (
+          {!reservation.canGuestCancel &&
+          reservation.guestCancellationReason ? (
             <p className="meta">{reservation.guestCancellationReason}</p>
           ) : null}
         </div>
       ) : null}
 
-      {reservation.status === 'COMPLETED' && isGuest ? (
+      {reservation.status === "COMPLETED" && isGuest ? (
         <section className="card">
           <h3>Recenzija boravka</h3>
 
           {reservation.review ? (
             <div className="list compact">
               <article className="list-item">
-                <p><strong>Vaša ocjena:</strong> {reservation.review.rating}/5</p>
-                <p><strong>Komentar:</strong> {reservation.review.comment}</p>
-                {reservation.review.ownerReply ? <p><strong>Odgovor vlasnika:</strong> {reservation.review.ownerReply}</p> : null}
+                <p>
+                  <strong>Vaša ocjena:</strong> {reservation.review.rating}/5
+                </p>
+                <p>
+                  <strong>Komentar:</strong> {reservation.review.comment}
+                </p>
+                {reservation.review.ownerReply ? (
+                  <p>
+                    <strong>Odgovor vlasnika:</strong>{" "}
+                    {reservation.review.ownerReply}
+                  </p>
+                ) : null}
               </article>
             </div>
           ) : (
@@ -250,7 +337,12 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
                   min="1"
                   max="5"
                   value={reviewForm.rating}
-                  onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: e.target.value }))}
+                  onChange={(e) =>
+                    setReviewForm((prev) => ({
+                      ...prev,
+                      rating: e.target.value,
+                    }))
+                  }
                   required
                 />
               </label>
@@ -259,14 +351,19 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
                 Komentar
                 <input
                   value={reviewForm.comment}
-                  onChange={(e) => setReviewForm((prev) => ({ ...prev, comment: e.target.value }))}
+                  onChange={(e) =>
+                    setReviewForm((prev) => ({
+                      ...prev,
+                      comment: e.target.value,
+                    }))
+                  }
                   minLength={10}
                   required
                 />
               </label>
 
               <button type="submit" disabled={submittingReview}>
-                {submittingReview ? 'Slanje...' : 'Pošalji recenziju'}
+                {submittingReview ? "Slanje..." : "Pošalji recenziju"}
               </button>
             </form>
           )}
@@ -278,9 +375,17 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
           <h3>Recenzija gosta</h3>
           <div className="list compact">
             <article className="list-item">
-              <p><strong>Ocjena:</strong> {reservation.review.rating}/5</p>
-              <p><strong>Komentar:</strong> {reservation.review.comment}</p>
-              {reservation.review.ownerReply ? <p><strong>Vaš odgovor:</strong> {reservation.review.ownerReply}</p> : null}
+              <p>
+                <strong>Ocjena:</strong> {reservation.review.rating}/5
+              </p>
+              <p>
+                <strong>Komentar:</strong> {reservation.review.comment}
+              </p>
+              {reservation.review.ownerReply ? (
+                <p>
+                  <strong>Vaš odgovor:</strong> {reservation.review.ownerReply}
+                </p>
+              ) : null}
             </article>
           </div>
 
@@ -296,14 +401,18 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
               />
             </label>
             <button type="submit" disabled={submittingReply}>
-              {submittingReply ? 'Spremanje...' : reservation.review.ownerReply ? 'Ažuriraj odgovor' : 'Pošalji odgovor'}
+              {submittingReply
+                ? "Spremanje..."
+                : reservation.review.ownerReply
+                  ? "Ažuriraj odgovor"
+                  : "Pošalji odgovor"}
             </button>
           </form>
         </section>
       ) : null}
 
       <section className="card">
-        <h3>{isOwner ? 'Chat s gostom' : 'Chat s vlasnikom'}</h3>
+        <h3>{isOwner ? "Chat s gostom" : "Chat s vlasnikom"}</h3>
         <form onSubmit={sendMessage} className="grid grid-2">
           <label>
             Nova poruka
@@ -313,15 +422,22 @@ export default function ReservationDetailsPage({ user, token, setFeedback, statu
               required
             />
           </label>
-          <button type="submit" disabled={sendingMessage}>{sendingMessage ? 'Slanje...' : 'Pošalji poruku'}</button>
+          <button type="submit" disabled={sendingMessage}>
+            {sendingMessage ? "Slanje..." : "Pošalji poruku"}
+          </button>
         </form>
         <div className="list compact">
           {messages.map((message) => (
             <div key={message.id} className="list-item">
-              <strong>{message.sender?.firstName} {message.sender?.lastName}:</strong> {message.content}
+              <strong>
+                {message.sender?.firstName} {message.sender?.lastName}:
+              </strong>{" "}
+              {message.content}
             </div>
           ))}
-          {messages.length === 0 ? <div className="list-item">Nema poruka za ovu rezervaciju.</div> : null}
+          {messages.length === 0 ? (
+            <div className="list-item">Nema poruka za ovu rezervaciju.</div>
+          ) : null}
         </div>
       </section>
     </section>
