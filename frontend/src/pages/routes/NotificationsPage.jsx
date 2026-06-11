@@ -2,20 +2,25 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationsContext";
 
-function extractReservationId(content) {
-  const match = content.match(/\[reservation:([0-9a-fA-F-]{36})\]/);
+const UUID = "[0-9a-fA-F-]{36}";
+
+function extractMarkerId(content, label) {
+  const match = content.match(new RegExp(`\\[${label}:(${UUID})\\]`));
   return match ? match[1] : null;
 }
 
+function extractReservationId(content) {
+  return extractMarkerId(content, "reservation");
+}
+
 function extractApartmentId(content) {
-  const match = content.match(/\[apartment:([0-9a-fA-F-]{36})\]/);
-  return match ? match[1] : null;
+  return extractMarkerId(content, "apartment");
 }
 
 function stripReservationMarker(content) {
   return content
-    .replace(/\s*\[reservation:[0-9a-fA-F-]{36}\]/, "")
-    .replace(/\s*\[apartment:[0-9a-fA-F-]{36}\]/, "")
+    .replace(new RegExp(`\\s*\\[reservation:${UUID}\\]`), "")
+    .replace(new RegExp(`\\s*\\[apartment:${UUID}\\]`), "")
     .trim();
 }
 
