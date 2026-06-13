@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
 
   db:
@@ -19,6 +17,41 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    build: ./backend
+    container_name: apartmani_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql://apartmani_user:apartmani_pass@db:5432/apartmani_db"
+      JWT_SECRET:   "brF5b1eM8MHxPZfpYzbpVRM1K9mUT5zX/QTiPBKNOx4="
+      PORT:         "3000"
+      FRONTEND_URL: "http://localhost:8080"
+      NODE_ENV:     "production"
+    volumes:
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: "/api"
+    container_name: apartmani_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
 
 volumes:
   postgres_data:
