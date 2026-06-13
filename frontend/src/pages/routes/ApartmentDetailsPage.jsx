@@ -56,6 +56,7 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [reserving, setReserving] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [apartment, setApartment] = useState(null);
@@ -425,6 +426,29 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
     }
   }
 
+  async function deleteApartment() {
+    if (!token) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Jeste li sigurni da želite obrisati ovaj apartman?",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      await api.del(`/apartments/${apartmentId}`, token);
+      setFeedback("Apartman je obrisan.");
+      navigate("/app/owner/apartments");
+    } catch (err) {
+      setFeedback(err.message, true);
+      setDeleting(false);
+    }
+  }
+
   async function reserveApartment(e) {
     e.preventDefault();
 
@@ -641,6 +665,16 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
               onClick={() => setEditMode(false)}
             >
               Odustani
+            </button>
+          ) : null}
+          {isOwner ? (
+            <button
+              type="button"
+              className="ghost"
+              onClick={deleteApartment}
+              disabled={deleting}
+            >
+              {deleting ? "Brisanje..." : "Obriši apartman"}
             </button>
           ) : null}
           <button
