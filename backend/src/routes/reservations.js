@@ -381,6 +381,14 @@ router.post("/", authenticate, async (req, res, next) => {
     const ci = new Date(data.checkIn);
     const co = new Date(data.checkOut);
 
+    if (ci <= new Date()) {
+      return next(createError("Datum check-in mora biti u budućnosti"));
+    }
+
+    if (co <= new Date()) {
+      return next(createError("Datum check-out mora biti u budućnosti"));
+    }
+
     if (ci >= co) {
       return next(createError("Datum check-out mora biti nakon check-in"));
     }

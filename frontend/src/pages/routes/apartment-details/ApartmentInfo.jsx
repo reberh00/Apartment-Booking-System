@@ -6,6 +6,8 @@ export default function ApartmentInfo({
   canViewStats,
   statsLoading,
   apartmentStats,
+  isAdmin,
+  onDeleteReview,
 }) {
   return (
     <div className="list compact">
@@ -107,12 +109,23 @@ export default function ApartmentInfo({
 
       {(apartment.reviews || []).map((review) => (
         <article key={review.id} className="list-item">
-          <p>
-            <strong>
-              {review.guest?.firstName} {review.guest?.lastName}
-            </strong>{" "}
-            — {formatDate(review.createdAt)}
-          </p>
+          <div className="row between">
+            <p>
+              <strong>
+                {review.guest?.firstName} {review.guest?.lastName}
+              </strong>{" "}
+              — {formatDate(review.createdAt)}
+            </p>
+            {isAdmin ? (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => onDeleteReview?.(review.id)}
+              >
+                Obriši
+              </button>
+            ) : null}
+          </div>
           <p>Ocjena: {review.rating}/5</p>
           <p>{review.comment}</p>
           {review.ownerReply ? (

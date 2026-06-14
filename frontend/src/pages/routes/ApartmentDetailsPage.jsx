@@ -89,6 +89,11 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
     return user.role === "ADMIN" || apartment.owner?.id === user.id;
   }, [user, apartment]);
 
+  const isAdmin = useMemo(() => {
+    if (!user) return false;
+    return user.role === "ADMIN";
+  }, [user]);
+
   const selectedNights = useMemo(
     () => calculateNights(reservationForm.checkIn, reservationForm.checkOut),
     [reservationForm.checkIn, reservationForm.checkOut],
@@ -449,6 +454,27 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
     }
   }
 
+  async function deleteReview(reviewId) {
+    if (!token) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Jeste li sigurni da želite obrisati ovu recenziju?",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await api.del(`/admin/reviews/${reviewId}`, token);
+      setFeedback("Recenzija je obrisana.");
+      await refreshApartmentDetails();
+    } catch (err) {
+      setFeedback(err.message, true);
+    }
+  }
+
   async function reserveApartment(e) {
     e.preventDefault();
 
@@ -717,6 +743,8 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
           canViewStats={canViewStats}
           statsLoading={statsLoading}
           apartmentStats={apartmentStats}
+          isAdmin={isAdmin}
+          onDeleteReview={deleteReview}
         />
       )}
 
