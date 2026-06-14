@@ -1,12 +1,12 @@
-const router = require('express').Router();
-const { z } = require('zod');
-const prisma = require('../utils/prisma');
-const { authenticate, authorize } = require('../middleware/auth');
-const { createError } = require('../middleware/errorHandler');
+const router = require("express").Router();
+const { z } = require("zod");
+const prisma = require("../utils/prisma");
+const { authenticate, authorize } = require("../middleware/auth");
+const { createError } = require("../middleware/errorHandler");
 
-router.use(authenticate, authorize('ADMIN'));
+router.use(authenticate, authorize("ADMIN"));
 
-router.get('/apartments', async (req, res, next) => {
+router.get("/apartments", async (req, res, next) => {
   try {
     const { status } = req.query;
     let where = {};
@@ -17,8 +17,13 @@ router.get('/apartments', async (req, res, next) => {
 
     const apartments = await prisma.apartment.findMany({
       where,
-      include: { owner: { select: { id: true, firstName: true, lastName: true, email: true } }, _count: { select: { reservations: true, reviews: true } } },
-      orderBy: { createdAt: 'desc' },
+      include: {
+        owner: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        _count: { select: { reservations: true, reviews: true } },
+      },
+      orderBy: { createdAt: "desc" },
     });
     res.json(apartments);
   } catch (err) {
@@ -26,29 +31,51 @@ router.get('/apartments', async (req, res, next) => {
   }
 });
 
-router.patch('/apartments/:id/status', async (req, res, next) => {
+router.patch("/apartments/:id/status", async (req, res, next) => {
   try {
-    const { status } = z.object({ status: z.enum(['APPROVED', 'REJECTED']) }).parse(req.body);
+    const { status } = z
+      .object({ status: z.enum(["APPROVED", "REJECTED"]) })
+      .parse(req.body);
 
     const apartment = await prisma.$transaction(async (tx) => {
+      const existing = await tx.apartment.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, status: true },
+      });
+
+      if (!existing) {
+        throw createError("Apartman nije pronađen", 404);
+      }
+
+      if (existing.status === "REJECTED") {
+        throw createError(
+          "Odbijeni apartman se ne može ponovno moderirati",
+          400,
+        );
+      }
+
+      if (existing.status === status) {
+        throw createError(`Apartman je već u statusu ${status}`, 400);
+      }
+
       const apt = await tx.apartment.update({
         where: { id: req.params.id },
-        data:  { status },
+        data: { status },
         include: { owner: { select: { id: true } } },
       });
 
-      let notificationType = 'APARTMENT_REJECTED';
-      let actionText = 'odbijen';
+      let notificationType = "APARTMENT_REJECTED";
+      let actionText = "odbijen";
 
-      if (status === 'APPROVED') {
-        notificationType = 'APARTMENT_APPROVED';
-        actionText = 'odobren';
+      if (status === "APPROVED") {
+        notificationType = "APARTMENT_APPROVED";
+        actionText = "odobren";
       }
 
       await tx.notification.create({
         data: {
-          userId:  apt.owner.id,
-          type:    notificationType,
+          userId: apt.owner.id,
+          type: notificationType,
           content: `Vaš oglas "${apt.title}" je ${actionText} [apartment:${apt.id}]`,
         },
       });
@@ -62,11 +89,19 @@ router.patch('/apartments/:id/status', async (req, res, next) => {
   }
 });
 
-router.get('/users', async (req, res, next) => {
+router.get("/users", async (req, res, next) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, email: true, firstName: true, lastName: true, role: true, createdAt: true, _count: { select: { apartments: true, reservations: true } } },
-      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        createdAt: true,
+        _count: { select: { apartments: true, reservations: true } },
+      },
+      orderBy: { createdAt: "desc" },
     });
     res.json(users);
   } catch (err) {
@@ -74,7 +109,7 @@ router.get('/users', async (req, res, next) => {
   }
 });
 
-router.delete('/users/:id', async (req, res, next) => {
+router.delete("/users/:id", async (req, res, next) => {
   try {
     const targetUser = await prisma.user.findUnique({
       where: { id: req.params.id },
@@ -82,28 +117,30 @@ router.delete('/users/:id', async (req, res, next) => {
     });
 
     if (!targetUser) {
-      return next(createError('Korisnik nije pronađen', 404));
+      return next(createError("Korisnik nije pronađen", 404));
     }
 
     if (targetUser.id === req.user.id) {
-      return next(createError('Admin ne može obrisati vlastiti račun', 403));
+      return next(createError("Admin ne može obrisati vlastiti račun", 403));
     }
 
-    if (targetUser.role === 'ADMIN') {
-      return next(createError('Admin račun nije moguće obrisati ovom rutom', 403));
+    if (targetUser.role === "ADMIN") {
+      return next(
+        createError("Admin račun nije moguće obrisati ovom rutom", 403),
+      );
     }
 
     await prisma.user.delete({ where: { id: targetUser.id } });
-    res.json({ message: 'Korisnik obrisan' });
+    res.json({ message: "Korisnik obrisan" });
   } catch (err) {
     next(err);
   }
 });
 
-router.delete('/reviews/:id', async (req, res, next) => {
+router.delete("/reviews/:id", async (req, res, next) => {
   try {
     await prisma.review.delete({ where: { id: req.params.id } });
-    res.json({ message: 'Recenzija obrisana' });
+    res.json({ message: "Recenzija obrisana" });
   } catch (err) {
     next(err);
   }

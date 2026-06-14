@@ -607,6 +607,21 @@ router.post(
         include: { contents: { include: { content: true } } },
       });
 
+      const admins = await prisma.user.findMany({
+        where: { role: "ADMIN", id: { not: req.user.id } },
+        select: { id: true },
+      });
+
+      if (admins.length > 0) {
+        await prisma.notification.createMany({
+          data: admins.map((admin) => ({
+            userId: admin.id,
+            type: "APARTMENT_NEW",
+            content: `Novi apartman "${apartment.title}" čeka moderaciju [apartment:${apartment.id}]`,
+          })),
+        });
+      }
+
       res.status(201).json(apartment);
     } catch (err) {
       next(err);

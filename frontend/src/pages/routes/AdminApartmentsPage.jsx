@@ -18,15 +18,22 @@ export default function AdminApartmentsPage() {
               Vlasnik: {apt.owner?.firstName} {apt.owner?.lastName}
             </p>
             <div className="row gap">
-              <button onClick={() => moderateApartment(apt.id, "APPROVED")}>
-                Odobri
-              </button>
-              <button
-                className="ghost"
-                onClick={() => moderateApartment(apt.id, "REJECTED")}
-              >
-                Odbij
-              </button>
+              {apt.status !== "APPROVED" && apt.status !== "REJECTED" ? (
+                <button onClick={() => moderateApartment(apt.id, "APPROVED")}>
+                  Odobri
+                </button>
+              ) : null}
+              {apt.status !== "REJECTED" ? (
+                <button
+                  className="ghost"
+                  onClick={() => moderateApartment(apt.id, "REJECTED")}
+                >
+                  Odbij
+                </button>
+              ) : null}
+              {apt.status === "REJECTED" ? (
+                <span className="meta">Nema dostupnih radnji.</span>
+              ) : null}
             </div>
           </article>
         ))}
