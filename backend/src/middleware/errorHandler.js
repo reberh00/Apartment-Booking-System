@@ -7,10 +7,8 @@ const errorHandler = (err, req, res, next) => {
   if (err instanceof ZodError) {
     return res.status(400).json({
       error: "Greška validacije",
-      details: err.errors.map((e) => ({
-        field: e.path.join("."),
-        message: e.message,
-      })),
+      details:
+        err.errors?.map((e) => e.path.join(".") + " " + e.message + "\n") || "",
     });
   }
 
