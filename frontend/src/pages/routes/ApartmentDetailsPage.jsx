@@ -63,6 +63,7 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
   const [apartment, setApartment] = useState(null);
   const [apartmentStats, setApartmentStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [statsPeriod, setStatsPeriod] = useState("12");
   const [unavailableRanges, setUnavailableRanges] = useState([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [calendarSelectionMessage, setCalendarSelectionMessage] = useState("");
@@ -346,7 +347,13 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
 
       try {
         setStatsLoading(true);
-        const data = await api.get(`/apartments/${apartmentId}/stats`, token);
+        const query = new URLSearchParams({
+          periodMonths: statsPeriod,
+        }).toString();
+        const data = await api.get(
+          `/apartments/${apartmentId}/stats?${query}`,
+          token,
+        );
 
         if (ignore) return;
         setApartmentStats(data);
@@ -366,7 +373,7 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
     return () => {
       ignore = true;
     };
-  }, [apartmentId, canViewStats, setFeedback, token]);
+  }, [apartmentId, canViewStats, setFeedback, token, statsPeriod]);
 
   useEffect(() => {
     let ignore = false;
@@ -750,6 +757,8 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
           apartmentStats={apartmentStats}
           isAdmin={isAdmin}
           onDeleteReview={deleteReview}
+          statsPeriod={statsPeriod}
+          onStatsPeriodChange={setStatsPeriod}
         />
       )}
 

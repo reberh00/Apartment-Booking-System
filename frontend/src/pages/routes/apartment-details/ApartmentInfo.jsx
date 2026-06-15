@@ -1,6 +1,26 @@
 import StatsLineChart from "./StatsLineChart";
 import { formatCurrency, formatDate } from "./utils";
 
+const PERIOD_OPTIONS = [
+  { value: "1", label: "1 mjesec" },
+  { value: "3", label: "3 mjeseca" },
+  { value: "6", label: "6 mjeseci" },
+  { value: "12", label: "1 godina" },
+];
+
+function periodLabel(months) {
+  switch (months) {
+    case "1":
+      return "1 mjesec";
+    case "3":
+      return "3 mjeseca";
+    case "6":
+      return "6 mjeseci";
+    default:
+      return "1 godina";
+  }
+}
+
 export default function ApartmentInfo({
   apartment,
   canViewStats,
@@ -8,6 +28,8 @@ export default function ApartmentInfo({
   apartmentStats,
   isAdmin,
   onDeleteReview,
+  statsPeriod,
+  onStatsPeriodChange,
 }) {
   return (
     <div className="list compact">
@@ -66,41 +88,35 @@ export default function ApartmentInfo({
                 </div>
               </div>
 
-              <div className="stats-year-list">
-                <h4>Godišnje</h4>
-                <div className="list compact">
-                  {apartmentStats.yearlyTrend.length ? (
-                    apartmentStats.yearlyTrend.map((yearRow) => (
-                      <div
-                        key={yearRow.label}
-                        className="list-item row between"
-                      >
-                        <span>{yearRow.label}</span>
-                        <span>
-                          {yearRow.reservations} rezervacija •{" "}
-                          {formatCurrency(yearRow.income)}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="meta">Nema realiziranih rezervacija.</p>
-                  )}
-                </div>
+              <div className="row between" style={{ marginTop: "1rem" }}>
+                <label htmlFor="stats-period">Period:</label>
+                <select
+                  id="stats-period"
+                  value={statsPeriod}
+                  onChange={(e) => onStatsPeriodChange?.(e.target.value)}
+                >
+                  {PERIOD_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <StatsLineChart
                 data={apartmentStats.monthlyTrend}
                 dataKey="income"
                 stroke="#2563eb"
-                title="Prihod po mjesecima (zadnjih 12 mjeseci)"
+                title={`Prihod po mjesecima (${periodLabel(statsPeriod)})`}
                 formatter={formatCurrency}
               />
               <StatsLineChart
                 data={apartmentStats.monthlyTrend}
                 dataKey="reservations"
                 stroke="#f97316"
-                title="Broj rezervacija po mjesecima (zadnjih 12 mjeseci)"
+                title={`Broj rezervacija po mjesecima (${periodLabel(statsPeriod)})`}
                 formatter={(value) => `${value} rezervacija`}
+                roundTicks
               />
             </>
           ) : null}

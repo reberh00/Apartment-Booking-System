@@ -260,6 +260,11 @@ router.get(
         return next(createError("Nemate ovlasti za ovaj apartman", 403));
       }
 
+      const periodMonths = Math.min(
+        Math.max(parseInt(req.query.periodMonths, 10) || 12, 1),
+        60,
+      );
+
       const reservations = await prisma.reservation.findMany({
         where: { apartmentId: req.params.id },
         select: {
@@ -272,6 +277,10 @@ router.get(
       });
 
       const today = startOfDay(new Date());
+      const cutoffDate = new Date(today);
+      cutoffDate.setMonth(cutoffDate.getMonth() - periodMonths + 1);
+      cutoffDate.setDate(1);
+
       const monthlyMap = {};
       const yearlyMap = {};
 
@@ -314,38 +323,45 @@ router.get(
         const checkInDate = new Date(reservation.checkIn);
         const year = checkInDate.getFullYear();
         const month = checkInDate.getMonth() + 1;
-        const key = monthKey(year, month);
 
-        if (!monthlyMap[key]) {
-          monthlyMap[key] = {
-            year,
-            month,
-            label: monthLabel(year, month),
-            reservations: 0,
-            income: 0,
-          };
+        if (checkInDate >= cutoffDate) {
+          const key = monthKey(year, month);
+
+          if (!monthlyMap[key]) {
+            monthlyMap[key] = {
+              year,
+              month,
+              label: monthLabel(year, month),
+              reservations: 0,
+              income: 0,
+            };
+          }
+
+          monthlyMap[key].reservations += 1;
+          monthlyMap[key].income += amount;
+
+          if (!yearlyMap[year]) {
+            yearlyMap[year] = {
+              year,
+              label: String(year),
+              reservations: 0,
+              income: 0,
+            };
+          }
+
+          yearlyMap[year].reservations += 1;
+          yearlyMap[year].income += amount;
         }
-
-        monthlyMap[key].reservations += 1;
-        monthlyMap[key].income += amount;
-
-        if (!yearlyMap[year]) {
-          yearlyMap[year] = {
-            year,
-            label: String(year),
-            reservations: 0,
-            income: 0,
-          };
-        }
-
-        yearlyMap[year].reservations += 1;
-        yearlyMap[year].income += amount;
       }
 
       const monthlyTrend = [];
-      const cursor = new Date(today.getFullYear(), today.getMonth() - 11, 1);
+      const cursor = new Date(
+        today.getFullYear(),
+        today.getMonth() - (periodMonths - 1),
+        1,
+      );
 
-      for (let index = 0; index < 12; index += 1) {
+      for (let index = 0; index < periodMonths; index += 1) {
         const year = cursor.getFullYear();
         const month = cursor.getMonth() + 1;
         const key = monthKey(year, month);
