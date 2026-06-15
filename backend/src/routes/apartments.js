@@ -4,6 +4,7 @@ const { z } = require("zod");
 const prisma = require("../utils/prisma");
 const { authenticate, authorize } = require("../middleware/auth");
 const { createError } = require("../middleware/errorHandler");
+const { broadcastAvailabilityChanged } = require("../websocket");
 const {
   uploadApartmentPhoto,
   apartmentPhotoFilePath,
@@ -781,6 +782,7 @@ router.post(
         },
       });
 
+      broadcastAvailabilityChanged(req.params.id);
       res.status(201).json(block);
     } catch (err) {
       next(err);
@@ -806,6 +808,8 @@ router.delete(
       await prisma.availabilityBlock.delete({
         where: { id: req.params.blockId },
       });
+
+      broadcastAvailabilityChanged(req.params.id);
       res.json({ message: "Blokada obrisana" });
     } catch (err) {
       next(err);

@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import { useFeedback } from "../../context/FeedbackContext";
 import { useContents } from "../../hooks/useContents";
+import { useSocket } from "../../hooks/useSocket";
 import ApartmentPhotosStrip from "./apartment-details/ApartmentPhotosStrip";
 import OwnerPhotoManager from "./apartment-details/OwnerPhotoManager";
 import ApartmentEditForm from "./apartment-details/ApartmentEditForm";
@@ -93,6 +94,10 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
     if (!user) return false;
     return user.role === "ADMIN";
   }, [user]);
+
+  useSocket(token, apartmentId, () => {
+    void loadCalendarAvailabilityData();
+  });
 
   const selectedNights = useMemo(
     () => calculateNights(reservationForm.checkIn, reservationForm.checkOut),

@@ -3,6 +3,7 @@ const { z } = require("zod");
 const prisma = require("../utils/prisma");
 const { authenticate, authorize } = require("../middleware/auth");
 const { createError } = require("../middleware/errorHandler");
+const { broadcastAvailabilityChanged } = require("../websocket");
 
 const MAX_RESERVATION_RETRIES = 3;
 const UUID = "[0-9a-fA-F-]{36}";
@@ -401,6 +402,7 @@ router.post("/", authenticate, async (req, res, next) => {
       numGuests: data.numGuests,
     });
 
+    broadcastAvailabilityChanged(data.apartmentId);
     res.status(201).json(reservation);
   } catch (err) {
     next(err);
@@ -492,6 +494,10 @@ router.patch("/:id/status", authenticate, async (req, res, next) => {
         },
       }),
     ]);
+
+    if (status === "REJECTED" || status === "CANCELLED") {
+      broadcastAvailabilityChanged(reservation.apartmentId);
+    }
 
     res.json(updated);
   } catch (err) {
