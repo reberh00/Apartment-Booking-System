@@ -26,6 +26,30 @@ export default function ApartmentEditForm({
             </select>
           ) : (
             <input
+              type={
+                key === "pricePerNight" ||
+                key === "maxGuests" ||
+                key === "minNights"
+                  ? "number"
+                  : "text"
+              }
+              step={key === "pricePerNight" ? "0.01" : "1"}
+              min={
+                key === "pricePerNight" ||
+                key === "maxGuests" ||
+                key === "minNights"
+                  ? "1"
+                  : undefined
+              }
+              max={
+                key === "pricePerNight"
+                  ? "9999"
+                  : key === "maxGuests"
+                    ? "10"
+                    : key === "minNights"
+                      ? "19"
+                      : undefined
+              }
               value={form[key]}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, [key]: e.target.value }))

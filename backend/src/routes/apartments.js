@@ -22,9 +22,9 @@ const apartmentSchema = z.object({
   address: z.string().min(5),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
-  pricePerNight: z.number().positive(),
-  maxGuests: z.number().int().positive(),
-  minNights: z.number().int().positive().default(1),
+  pricePerNight: z.number().positive().max(9999),
+  maxGuests: z.number().int().positive().max(10),
+  minNights: z.number().int().positive().max(19).default(1),
   cancellationPolicy: z
     .enum(["FLEXIBLE", "MODERATE", "STRICT"])
     .default("FLEXIBLE"),
