@@ -1,9 +1,8 @@
 import { useApartmentForm } from "../../hooks/useApartmentForm";
-import { useContents } from "../../hooks/useContents";
+import AmenitiesSelector from "../../components/AmenitiesSelector";
 
 export default function OwnerApartmentCreatePage() {
   const { newApartment, setNewApartment, createApartment } = useApartmentForm();
-  const { contentsOptions } = useContents();
 
   return (
     <section className="card">
@@ -37,34 +36,12 @@ export default function OwnerApartmentCreatePage() {
             </label>
           ))}
 
-        <div>
-          <strong>Sadržaji (amenities)</strong>
-          <div className="list compact">
-            {contentsOptions.map((content) => {
-              const checked = newApartment.contentIds.includes(content.id);
-              return (
-                <label key={content.id} className="list-item">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(e) => {
-                      const nextIds = e.target.checked
-                        ? [...newApartment.contentIds, content.id]
-                        : newApartment.contentIds.filter(
-                            (id) => id !== content.id,
-                          );
-                      setNewApartment((prev) => ({
-                        ...prev,
-                        contentIds: nextIds,
-                      }));
-                    }}
-                  />
-                  {content.name}
-                </label>
-              );
-            })}
-          </div>
-        </div>
+        <AmenitiesSelector
+          selectedIds={newApartment.contentIds}
+          onChange={(ids) =>
+            setNewApartment((prev) => ({ ...prev, contentIds: ids }))
+          }
+        />
 
         <button type="submit">Kreiraj apartman</button>
       </form>

@@ -4,7 +4,6 @@ import "react-day-picker/style.css";
 import { api } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import { useFeedback } from "../../context/FeedbackContext";
-import { useContents } from "../../hooks/useContents";
 import { useSocket } from "../../hooks/useSocket";
 import ApartmentPhotosStrip from "./apartment-details/ApartmentPhotosStrip";
 import OwnerPhotoManager from "./apartment-details/OwnerPhotoManager";
@@ -24,7 +23,6 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
   const { setFeedback } = useFeedback();
   const { apartmentId } = useParams();
   const navigate = useNavigate();
-  const { contentsOptions } = useContents();
 
   async function updateApartment(id, payload) {
     try {
@@ -745,9 +743,9 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
         <ApartmentEditForm
           form={form}
           setForm={setForm}
-          contentsOptions={contentsOptions}
           saving={saving}
           onSubmit={saveApartment}
+          apartmentId={apartmentId}
         />
       ) : (
         <ApartmentInfo

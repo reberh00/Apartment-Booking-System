@@ -624,6 +624,13 @@ router.post(
         include: { contents: { include: { content: true } } },
       });
 
+      if (contentIds && contentIds.length > 0) {
+        await prisma.content.updateMany({
+          where: { id: { in: contentIds }, apartmentId: null },
+          data: { apartmentId: apartment.id },
+        });
+      }
+
       const admins = await prisma.user.findMany({
         where: { role: "ADMIN", id: { not: req.user.id } },
         select: { id: true },

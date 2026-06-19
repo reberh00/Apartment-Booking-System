@@ -88,6 +88,7 @@ model Apartment {
 
   owner              User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   photos             ApartmentPhoto[]
+  customContents     Content[]           @relation("ApartmentCustomContents")
   contents           ApartmentContent[]
   reservations       Reservation[]
   reviews            Review[]
@@ -109,12 +110,16 @@ model ApartmentPhoto {
 }
 
 model Content {
-  id         String             @id @default(uuid())
-  name       String             @unique
-  icon       String             // naziv ikone (npr. "wifi", "parking", "pool")
+  id          String             @id @default(uuid())
+  name        String
+  icon        String             // naziv ikone (npr. "wifi", "parking", "pool")
+  apartmentId String?            @map("apartment_id")
+  apartment   Apartment?         @relation("ApartmentCustomContents", fields: [apartmentId], references: [id], onDelete: Cascade)
 
-  apartments ApartmentContent[]
+  apartments  ApartmentContent[]
 
+  @@unique([name, apartmentId])
+  @@index([apartmentId])
   @@map("contents")
 }
 

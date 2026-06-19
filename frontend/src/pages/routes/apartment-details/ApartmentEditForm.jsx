@@ -1,11 +1,12 @@
 import { editableKeys } from "./utils";
+import AmenitiesSelector from "../../../components/AmenitiesSelector";
 
 export default function ApartmentEditForm({
   form,
   setForm,
-  contentsOptions,
   saving,
   onSubmit,
+  apartmentId,
 }) {
   return (
     <form onSubmit={onSubmit} className="grid grid-3">
@@ -35,29 +36,11 @@ export default function ApartmentEditForm({
         </label>
       ))}
 
-      <div>
-        <strong>Sadržaji (amenities)</strong>
-        <div className="list compact">
-          {contentsOptions.map((content) => {
-            const checked = form.contentIds.includes(content.id);
-            return (
-              <label key={content.id} className="list-item">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(e) => {
-                    const nextIds = e.target.checked
-                      ? [...form.contentIds, content.id]
-                      : form.contentIds.filter((id) => id !== content.id);
-                    setForm((prev) => ({ ...prev, contentIds: nextIds }));
-                  }}
-                />
-                {content.name}
-              </label>
-            );
-          })}
-        </div>
-      </div>
+      <AmenitiesSelector
+        selectedIds={form.contentIds}
+        onChange={(ids) => setForm((prev) => ({ ...prev, contentIds: ids }))}
+        apartmentId={apartmentId}
+      />
 
       <button type="submit" disabled={saving}>
         {saving ? "Spremanje..." : "Spremi promjene"}
