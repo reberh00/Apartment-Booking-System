@@ -34,6 +34,13 @@ enum ReservationStatus {
   COMPLETED  // boravak završen
 }
 
+enum PaymentStatus {
+  PENDING    // čeka plaćanje
+  PAID       // plaćeno
+  FAILED     // plaćanje neuspješno
+  REFUNDED   // refundirano
+}
+
 enum NotificationType {
   RESERVATION_NEW
   RESERVATION_CONFIRMED
@@ -135,16 +142,19 @@ model ApartmentContent {
 }
 
 model Reservation {
-  id          String            @id @default(uuid())
-  apartmentId String            @map("apartment_id")
-  guestId     String            @map("guest_id")
-  checkIn     DateTime          @map("check_in") @db.Date
-  checkOut    DateTime          @map("check_out") @db.Date
-  numGuests   Int               @map("num_guests")
-  totalPrice  Decimal           @map("total_price") @db.Decimal(10, 2)
-  status      ReservationStatus @default(PENDING)
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  id                   String            @id @default(uuid())
+  apartmentId          String            @map("apartment_id")
+  guestId              String            @map("guest_id")
+  checkIn              DateTime          @map("check_in") @db.Date
+  checkOut             DateTime          @map("check_out") @db.Date
+  numGuests            Int               @map("num_guests")
+  totalPrice           Decimal           @map("total_price") @db.Decimal(10, 2)
+  status               ReservationStatus @default(PENDING)
+  stripePaymentIntentId String?          @map("stripe_payment_intent_id")
+  paymentStatus        PaymentStatus     @default(PENDING) @map("payment_status")
+  paymentAmount        Decimal?          @map("payment_amount") @db.Decimal(10, 2)
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
 
   apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   guest       User      @relation(fields: [guestId], references: [id], onDelete: Cascade)
