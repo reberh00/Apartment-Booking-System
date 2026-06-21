@@ -46,7 +46,7 @@ export default function AmenitiesSelector({
   return (
     <div>
       <div className="row between">
-        <strong>Sadržaji (amenities)</strong>
+        <strong>Sadržaji</strong>
         <button
           type="button"
           className="ghost"

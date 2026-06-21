@@ -15,6 +15,7 @@ const notificationRoutes = require("./routes/notifications");
 const adminRoutes = require("./routes/admin");
 const analyticsRoutes = require("./routes/analytics");
 const paymentRoutes = require("./routes/payments");
+const geocodeRoutes = require("./routes/geocode");
 
 const { errorHandler } = require("./middleware/errorHandler");
 
@@ -45,6 +46,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/geocode", geocodeRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 

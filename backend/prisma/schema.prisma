@@ -81,8 +81,11 @@ model Apartment {
   title              String
   description        String
   city               String
+  cityNormalized     String?             @map("city_normalized")
   country            String
+  countryCode        String?             @map("country_code")
   address            String
+  placeId            String?             @map("place_id")
   latitude           Decimal             @db.Decimal(9, 6)
   longitude          Decimal             @db.Decimal(9, 6)
   pricePerNight      Decimal             @map("price_per_night") @db.Decimal(10, 2)

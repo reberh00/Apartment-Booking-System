@@ -19,7 +19,9 @@ const apartmentSchema = z.object({
   description: z.string().min(20),
   city: z.string().min(2),
   country: z.string().min(2),
+  countryCode: z.string().length(2).optional(),
   address: z.string().min(5),
+  placeId: z.string().optional(),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   pricePerNight: z.number().positive().max(9999),
@@ -30,6 +32,15 @@ const apartmentSchema = z.object({
     .default("FLEXIBLE"),
   contentIds: z.array(z.string().uuid()).optional(),
 });
+
+function normalizeCity(value) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 const availabilityBlockSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -618,6 +629,8 @@ router.post(
 
       const apartmentData = {
         ...data,
+        countryCode: data.countryCode ? data.countryCode.toUpperCase() : null,
+        cityNormalized: normalizeCity(data.city),
         ownerId: req.user.id,
         status: "PENDING",
       };
@@ -682,6 +695,13 @@ router.put(
       }
 
       const { contentIds, ...data } = apartmentSchema.partial().parse(req.body);
+
+      if (data.city) {
+        data.cityNormalized = normalizeCity(data.city);
+      }
+      if (data.countryCode) {
+        data.countryCode = data.countryCode.toUpperCase();
+      }
 
       const updated = await prisma.$transaction(async (tx) => {
         if (contentIds !== undefined) {
