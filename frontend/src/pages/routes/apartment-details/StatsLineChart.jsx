@@ -11,6 +11,17 @@ export default function StatsLineChart({
   const padding = 24;
   const labelPadding = 60;
 
+  const labelStep =
+    data.length > 48
+      ? 28
+      : data.length > 24
+        ? 16
+        : data.length > 12
+          ? 12
+          : data.length > 6
+            ? 7
+            : 1;
+
   if (!data?.length) {
     return null;
   }
@@ -126,9 +137,15 @@ export default function StatsLineChart({
           </circle>
         ))}
       </svg>
-      <div className="stats-chart-labels">
+      <div
+        className="stats-chart-labels"
+        style={{
+          paddingLeft: `${(chartLeft / width) * 100}%`,
+          paddingRight: `${((width - chartRight) / width) * 100}%`,
+        }}
+      >
         {data.map((item, index) =>
-          index % 2 === 0 || index === data.length - 1 ? (
+          index % labelStep === 0 || index === data.length - 1 ? (
             <span key={`${title}-${item.label}`}>{item.label}</span>
           ) : null,
         )}

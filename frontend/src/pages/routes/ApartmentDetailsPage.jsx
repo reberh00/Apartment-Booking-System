@@ -61,7 +61,9 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
   const [apartment, setApartment] = useState(null);
   const [apartmentStats, setApartmentStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [statsPeriod, setStatsPeriod] = useState("12");
+  const [statsStartDate, setStatsStartDate] = useState("");
+  const [statsEndDate, setStatsEndDate] = useState("");
+  const [showStatsDatePicker, setShowStatsDatePicker] = useState(false);
   const [unavailableRanges, setUnavailableRanges] = useState([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [calendarSelectionMessage, setCalendarSelectionMessage] = useState("");
@@ -346,7 +348,8 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
       try {
         setStatsLoading(true);
         const query = new URLSearchParams({
-          periodMonths: statsPeriod,
+          startDate: statsStartDate,
+          endDate: statsEndDate,
         }).toString();
         const data = await api.get(
           `/apartments/${apartmentId}/stats?${query}`,
@@ -371,7 +374,14 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
     return () => {
       ignore = true;
     };
-  }, [apartmentId, canViewStats, setFeedback, token, statsPeriod]);
+  }, [
+    apartmentId,
+    canViewStats,
+    setFeedback,
+    token,
+    statsStartDate,
+    statsEndDate,
+  ]);
 
   useEffect(() => {
     let ignore = false;
@@ -768,8 +778,14 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
           apartmentStats={apartmentStats}
           isAdmin={isAdmin}
           onDeleteReview={deleteReview}
-          statsPeriod={statsPeriod}
-          onStatsPeriodChange={setStatsPeriod}
+          statsStartDate={statsStartDate}
+          statsEndDate={statsEndDate}
+          onStatsStartDateChange={setStatsStartDate}
+          onStatsEndDateChange={setStatsEndDate}
+          showStatsDatePicker={showStatsDatePicker}
+          onToggleStatsDatePicker={() =>
+            setShowStatsDatePicker(!showStatsDatePicker)
+          }
         />
       )}
 

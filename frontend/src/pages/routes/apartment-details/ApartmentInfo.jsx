@@ -1,26 +1,6 @@
 import StatsLineChart from "./StatsLineChart";
 import { formatCurrency, formatDate } from "./utils";
 
-const PERIOD_OPTIONS = [
-  { value: "1", label: "1 mjesec" },
-  { value: "3", label: "3 mjeseca" },
-  { value: "6", label: "6 mjeseci" },
-  { value: "12", label: "1 godina" },
-];
-
-function periodLabel(months) {
-  switch (months) {
-    case "1":
-      return "1 mjesec";
-    case "3":
-      return "3 mjeseca";
-    case "6":
-      return "6 mjeseci";
-    default:
-      return "1 godina";
-  }
-}
-
 export default function ApartmentInfo({
   apartment,
   canViewStats,
@@ -28,9 +8,14 @@ export default function ApartmentInfo({
   apartmentStats,
   isAdmin,
   onDeleteReview,
-  statsPeriod,
-  onStatsPeriodChange,
+  statsStartDate,
+  statsEndDate,
+  onStatsStartDateChange,
+  onStatsEndDateChange,
+  showStatsDatePicker,
+  onToggleStatsDatePicker,
 }) {
+  const currentMonth = new Date().toISOString().slice(0, 7);
   return (
     <div className="list compact">
       <article className="list-item">
@@ -88,33 +73,76 @@ export default function ApartmentInfo({
                 </div>
               </div>
 
-              <div className="row between" style={{ marginTop: "1rem" }}>
-                <label htmlFor="stats-period">Period:</label>
-                <select
-                  id="stats-period"
-                  value={statsPeriod}
-                  onChange={(e) => onStatsPeriodChange?.(e.target.value)}
-                >
-                  {PERIOD_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+              <div style={{ marginBottom: "1rem" }}>
+                <button onClick={onToggleStatsDatePicker} className="btn">
+                  {showStatsDatePicker ? "Zatvori kalendar" : "Odaberi period"}
+                </button>
               </div>
+
+              {showStatsDatePicker && (
+                <div
+                  className="form-group"
+                  style={{
+                    marginBottom: "1rem",
+                    padding: "1rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                  }}
+                >
+                  <div
+                    style={{
+                      marginBottom: "1rem",
+                      display: "flex",
+                      gap: "1rem",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div>
+                      <label>Od:</label>
+                      <input
+                        type="month"
+                        value={statsStartDate}
+                        onChange={(e) =>
+                          onStatsStartDateChange?.(e.target.value)
+                        }
+                        min="2000-01"
+                        max={currentMonth}
+                        style={{ marginLeft: "0.5rem" }}
+                      />
+                    </div>
+                    <div>
+                      <label>Do:</label>
+                      <input
+                        type="month"
+                        value={statsEndDate}
+                        onChange={(e) => onStatsEndDateChange?.(e.target.value)}
+                        min="2000-01"
+                        max={currentMonth}
+                        style={{ marginLeft: "0.5rem" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {statsStartDate && statsEndDate && !showStatsDatePicker && (
+                <p style={{ marginBottom: "1rem", color: "#666" }}>
+                  Period: {statsStartDate} - {statsEndDate}
+                </p>
+              )}
 
               <StatsLineChart
                 data={apartmentStats.monthlyTrend}
                 dataKey="income"
                 stroke="#2563eb"
-                title={`Prihod po mjesecima (${periodLabel(statsPeriod)})`}
+                title="Prihod po mjesecima"
                 formatter={formatCurrency}
               />
               <StatsLineChart
                 data={apartmentStats.monthlyTrend}
                 dataKey="reservations"
                 stroke="#f97316"
-                title={`Broj rezervacija po mjesecima (${periodLabel(statsPeriod)})`}
+                title="Broj rezervacija po mjesecima"
                 formatter={(value) => `${value} rezervacija`}
                 roundTicks
               />

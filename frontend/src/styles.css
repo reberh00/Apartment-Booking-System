@@ -1,10 +1,9 @@
 :root {
-  font-family: 'Trebuchet MS', 'Gill Sans', 'Gill Sans MT', Calibri, sans-serif;
+  font-family: "Trebuchet MS", "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
   color: #14213d;
   background:
     radial-gradient(circle at top left, #fff8e7 0%, transparent 45%),
-    radial-gradient(circle at right, #e7f6ff 0%, transparent 50%),
-    #f6f7fb;
+    radial-gradient(circle at right, #e7f6ff 0%, transparent 50%), #f6f7fb;
 }
 
 * {
@@ -131,7 +130,10 @@ button:hover {
 }
 
 .notification-item {
-  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .notification-unread {

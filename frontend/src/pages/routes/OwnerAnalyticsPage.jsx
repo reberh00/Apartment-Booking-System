@@ -4,9 +4,11 @@ import { useAnalytics } from "../../hooks/useAnalytics";
 export default function OwnerAnalyticsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(true);
 
   const { analytics } = useAnalytics(startDate, endDate);
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
 
   const handleApplyDates = () => {
     if (startDate && endDate) {
@@ -48,18 +50,22 @@ export default function OwnerAnalyticsPage() {
             <div>
               <label>Od:</label>
               <input
-                type="date"
+                type="month"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                min="2000-01"
+                max={currentMonth}
                 style={{ marginLeft: "0.5rem" }}
               />
             </div>
             <div>
               <label>Do:</label>
               <input
-                type="date"
+                type="month"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                min="2000-01"
+                max={currentMonth}
                 style={{ marginLeft: "0.5rem" }}
               />
             </div>
@@ -76,8 +82,7 @@ export default function OwnerAnalyticsPage() {
 
       {startDate && endDate && !showDatePicker && (
         <p style={{ marginBottom: "1rem", color: "#666" }}>
-          Period: {new Date(startDate).toLocaleDateString("hr-HR")} -{" "}
-          {new Date(endDate).toLocaleDateString("hr-HR")}
+          Period: {startDate} - {endDate}
         </p>
       )}
 
