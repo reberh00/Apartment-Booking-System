@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import "react-day-picker/style.css";
 import { api } from "../../api";
 import { useAuth } from "../../context/AuthContext";
@@ -23,6 +23,7 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
   const { setFeedback } = useFeedback();
   const { apartmentId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   async function updateApartment(id, payload) {
     try {
@@ -494,6 +495,61 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
       setFeedback(err.message, true);
     }
   }
+
+  useEffect(() => {
+    const paymentStatus = searchParams.get("payment");
+    if (!paymentStatus || !token) {
+      return;
+    }
+
+    if (paymentStatus === "cancelled") {
+      setFeedback("Plaćanje je otkazano. Rezervacija nije napravljena.", true);
+      setSearchParams({}, { replace: true });
+      return;
+    }
+
+    if (paymentStatus === "success") {
+      const sessionId = searchParams.get("session_id");
+      if (!sessionId) {
+        setSearchParams({}, { replace: true });
+        return;
+      }
+
+      let ignore = false;
+      async function verifyPayment() {
+        try {
+          const result = await api.post(
+            "/payments/verify-session",
+            { sessionId },
+            token,
+          );
+          if (ignore) return;
+
+          if (result.paid && result.reservationId) {
+            setFeedback("Plaćanje uspješno! Rezervacija je poslana vlasniku.");
+            navigate(`/app/reservations/${result.reservationId}`, {
+              replace: true,
+            });
+          } else {
+            setFeedback(
+              "Plaćanje nije potvrđeno. Rezervacija nije napravljena.",
+              true,
+            );
+            setSearchParams({}, { replace: true });
+          }
+        } catch (err) {
+          if (!ignore) {
+            setFeedback(err.message, true);
+            setSearchParams({}, { replace: true });
+          }
+        }
+      }
+      void verifyPayment();
+      return () => {
+        ignore = true;
+      };
+    }
+  }, [searchParams, token, navigate, setFeedback, setSearchParams]);
 
   async function reserveApartment(e) {
     e.preventDefault();

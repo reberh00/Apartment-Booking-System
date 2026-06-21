@@ -14,6 +14,87 @@ const checkoutSessionSchema = z.object({
   numGuests: z.number().int().positive(),
 });
 
+const verifySessionSchema = z.object({
+  sessionId: z.string().min(1),
+});
+
+async function createReservationFromSession(session) {
+  if (session.payment_status !== "paid") {
+    return null;
+  }
+
+  const { apartmentId, guestId, checkIn, checkOut, numGuests, totalPrice } =
+    session.metadata || {};
+
+  if (
+    !apartmentId ||
+    !guestId ||
+    !checkIn ||
+    !checkOut ||
+    !numGuests ||
+    !totalPrice
+  ) {
+    console.error("Missing required metadata fields on session", session.id);
+    return null;
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id || null;
+
+  const existing = paymentIntentId
+    ? await prisma.reservation.findFirst({
+        where: { stripePaymentIntentId: paymentIntentId },
+      })
+    : null;
+
+  if (existing) {
+    return existing;
+  }
+
+  const apartment = await prisma.apartment.findUnique({
+    where: { id: apartmentId },
+    select: { ownerId: true, title: true },
+  });
+
+  const guest = await prisma.user.findUnique({
+    where: { id: guestId },
+    select: { firstName: true, lastName: true },
+  });
+
+  if (!apartment || !guest) {
+    console.error("Apartment or guest not found for session", session.id);
+    return null;
+  }
+
+  const [reservation] = await prisma.$transaction([
+    prisma.reservation.create({
+      data: {
+        apartmentId,
+        guestId,
+        checkIn: new Date(checkIn),
+        checkOut: new Date(checkOut),
+        numGuests: parseInt(numGuests, 10),
+        totalPrice: parseFloat(totalPrice),
+        status: "PENDING",
+        paymentStatus: "PAID",
+        paymentAmount: parseFloat(session.amount_total) / 100,
+        stripePaymentIntentId: paymentIntentId,
+      },
+    }),
+    prisma.notification.create({
+      data: {
+        userId: apartment.ownerId,
+        type: "RESERVATION_NEW",
+        content: `Nova plaćena rezervacija za "${apartment.title}" od ${guest.firstName} ${guest.lastName} - čeka vašu potvrdu`,
+      },
+    }),
+  ]);
+
+  return reservation;
+}
+
 router.post(
   "/create-checkout-session",
   authenticate,
@@ -93,7 +174,7 @@ router.post(
           },
         ],
         mode: "payment",
-        success_url: `${process.env.FRONTEND_URL}/app/apartments/${apartmentId}?payment=success`,
+        success_url: `${process.env.FRONTEND_URL}/app/apartments/${apartmentId}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.FRONTEND_URL}/app/apartments/${apartmentId}?payment=cancelled`,
         metadata: {
           apartmentId,
@@ -111,6 +192,34 @@ router.post(
     }
   },
 );
+
+router.post("/verify-session", authenticate, async (req, res, next) => {
+  try {
+    const { sessionId } = verifySessionSchema.parse(req.body);
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["payment_intent"],
+    });
+
+    if (session.metadata?.guestId !== req.user.id) {
+      return next(createError("Nemate ovlasti za ovu sesiju", 403));
+    }
+
+    if (session.payment_status !== "paid") {
+      return res.json({ paid: false, reservationId: null });
+    }
+
+    const reservation = await createReservationFromSession(session);
+
+    if (!reservation) {
+      return next(createError("Greška pri kreiranju rezervacije", 500));
+    }
+
+    res.json({ paid: true, reservationId: reservation.id });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.post("/webhook", async (req, res, next) => {
   const sig = req.headers["stripe-signature"];
@@ -131,75 +240,7 @@ router.post("/webhook", async (req, res, next) => {
   try {
     switch (event.type) {
       case "checkout.session.completed": {
-        const session = event.data.object;
-        const {
-          apartmentId,
-          guestId,
-          checkIn,
-          checkOut,
-          numGuests,
-          totalPrice,
-        } = session.metadata;
-
-        if (
-          !apartmentId ||
-          !guestId ||
-          !checkIn ||
-          !checkOut ||
-          !numGuests ||
-          !totalPrice
-        ) {
-          console.error("Missing required metadata fields");
-          return res.status(200).json({ received: true });
-        }
-
-        if (session.payment_status === "paid") {
-          const apartment = await prisma.apartment.findUnique({
-            where: { id: apartmentId },
-            select: {
-              ownerId: true,
-              title: true,
-            },
-          });
-
-          const guest = await prisma.user.findUnique({
-            where: { id: guestId },
-            select: {
-              firstName: true,
-              lastName: true,
-            },
-          });
-
-          if (!apartment || !guest) {
-            console.error("Apartment or guest not found");
-            return res.status(200).json({ received: true });
-          }
-
-          await prisma.$transaction([
-            prisma.reservation.create({
-              data: {
-                apartmentId,
-                guestId,
-                checkIn: new Date(checkIn),
-                checkOut: new Date(checkOut),
-                numGuests: parseInt(numGuests),
-                totalPrice: parseFloat(totalPrice),
-                status: "PENDING",
-                paymentStatus: "PAID",
-                paymentAmount: parseFloat(session.amount_total) / 100,
-                stripePaymentIntentId: session.payment_intent,
-              },
-            }),
-            prisma.notification.create({
-              data: {
-                userId: apartment.ownerId,
-                type: "RESERVATION_NEW",
-                content: `Nova plaćena rezervacija za "${apartment.title}" od ${guest.firstName} ${guest.lastName} - čeka vašu potvrdu`,
-              },
-            }),
-          ]);
-        }
-
+        await createReservationFromSession(event.data.object);
         break;
       }
 
