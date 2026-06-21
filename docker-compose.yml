@@ -1,13 +1,12 @@
 services:
-
   db:
     image: postgres:16-alpine
     container_name: apartmani_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER:     apartmani_user
+      POSTGRES_USER: apartmani_user
       POSTGRES_PASSWORD: apartmani_pass
-      POSTGRES_DB:       apartmani_db
+      POSTGRES_DB: apartmani_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -24,10 +23,12 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: "postgresql://apartmani_user:apartmani_pass@db:5432/apartmani_db"
-      JWT_SECRET:   "brF5b1eM8MHxPZfpYzbpVRM1K9mUT5zX/QTiPBKNOx4="
-      PORT:         "3000"
+      JWT_SECRET: "brF5b1eM8MHxPZfpYzbpVRM1K9mUT5zX/QTiPBKNOx4="
+      PORT: "3000"
       FRONTEND_URL: "http://localhost:8080"
-      NODE_ENV:     "production"
+      NODE_ENV: "production"
+      STRIPE_SECRET_KEY: "sk_test_your_stripe_secret_key_here"
+      STRIPE_WEBHOOK_SECRET: "whsec_your_webhook_secret_here"
     volumes:
       - ./backend/uploads:/app/uploads
     depends_on:
@@ -36,7 +37,8 @@ services:
     ports:
       - "3001:3000"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      test:
+        ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5

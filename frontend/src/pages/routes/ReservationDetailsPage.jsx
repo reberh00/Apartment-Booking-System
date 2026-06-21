@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import { useFeedback } from "../../context/FeedbackContext";
@@ -10,6 +10,7 @@ export default function ReservationDetailsPage() {
   const { setFeedback } = useFeedback();
   const { reservationId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [reservation, setReservation] = useState(null);
@@ -32,6 +33,38 @@ export default function ReservationDetailsPage() {
   }, [reservation, user]);
 
   const backPath = isOwner ? "/app/owner/reservations" : "/app/reservations/my";
+
+  useEffect(() => {
+    const paymentStatus = searchParams.get("payment");
+    if (paymentStatus === "success") {
+      setFeedback("Plaćanje je uspješno! Rezervacija je potvrđena.");
+    } else if (paymentStatus === "cancelled") {
+      setFeedback(
+        "Plaćanje je otkazano ili neuspješno. Rezervacija je otkazana.",
+        true,
+      );
+      async function cancelFailedPaymentReservation() {
+        try {
+          const res = await api.get(`/reservations/${reservationId}`, token);
+          if (res.status === "PENDING" && res.paymentStatus === "PENDING") {
+            await api.patch(
+              `/reservations/${reservationId}/status`,
+              { status: "CANCELLED" },
+              token,
+            );
+            setReservation((prev) =>
+              prev
+                ? { ...prev, status: "CANCELLED", paymentStatus: "FAILED" }
+                : prev,
+            );
+          }
+        } catch (err) {
+          console.error("Failed to cancel reservation:", err);
+        }
+      }
+      void cancelFailedPaymentReservation();
+    }
+  }, [searchParams, setFeedback, reservationId, token]);
 
   useEffect(() => {
     let ignore = false;
@@ -248,6 +281,10 @@ export default function ReservationDetailsPage() {
             <span className={statusBadgeClass(reservation.status)}>
               {reservation.status}
             </span>
+          </p>
+          <p>
+            <strong>Status plaćanja:</strong>{" "}
+            {reservation.paymentStatus || "N/A"}
           </p>
           <p>
             <strong>Check-in:</strong>{" "}

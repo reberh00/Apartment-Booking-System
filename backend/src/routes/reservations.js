@@ -119,19 +119,11 @@ async function createReservationWithRetry(payload) {
               checkOut: payload.checkOut,
               numGuests: payload.numGuests,
               totalPrice,
-              status: "PENDING",
+              status: "AWAITING_PAYMENT",
             },
             include: {
               apartment: { select: { id: true, title: true, ownerId: true } },
               guest: { select: { id: true, firstName: true, lastName: true } },
-            },
-          });
-
-          await tx.notification.create({
-            data: {
-              userId: newReservation.apartment.ownerId,
-              type: "RESERVATION_NEW",
-              content: `Nova rezervacija za "${newReservation.apartment.title}" od ${newReservation.guest.firstName} ${newReservation.guest.lastName} [reservation:${newReservation.id}]`,
             },
           });
 

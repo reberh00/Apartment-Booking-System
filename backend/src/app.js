@@ -14,6 +14,7 @@ const messageRoutes = require("./routes/messages");
 const notificationRoutes = require("./routes/notifications");
 const adminRoutes = require("./routes/admin");
 const analyticsRoutes = require("./routes/analytics");
+const paymentRoutes = require("./routes/payments");
 
 const { errorHandler } = require("./middleware/errorHandler");
 
@@ -42,6 +43,7 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/payments", paymentRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 

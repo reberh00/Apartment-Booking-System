@@ -495,9 +495,22 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
 
     try {
       setReserving(true);
-      await createReservationForApartment(apartmentId, reservationForm);
-      setReservationForm({ checkIn: "", checkOut: "", numGuests: 1 });
-      setCalendarSelectionMessage("");
+      const checkoutSession = await api.post(
+        "/payments/create-checkout-session",
+        {
+          apartmentId: apartmentId,
+          checkIn: reservationForm.checkIn,
+          checkOut: reservationForm.checkOut,
+          numGuests: Number(reservationForm.numGuests),
+        },
+        token,
+      );
+
+      if (checkoutSession.url) {
+        window.location.href = checkoutSession.url;
+      } else {
+        setFeedback("Greška pri kreiranju plaćanja.", true);
+      }
     } catch (err) {
       setFeedback(err.message, true);
     } finally {
