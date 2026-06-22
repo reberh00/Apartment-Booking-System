@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { assetUrl } from "../../api";
 import { useOwnerApartments } from "../../hooks/useOwnerApartments";
-import { statusBadgeClass } from "../../utils/status";
+import { statusBadgeClass, apartmentStatusLabel } from "../../utils/status";
 
 export default function OwnerApartmentsPage() {
   const { myApartments } = useOwnerApartments();
@@ -30,7 +30,9 @@ export default function OwnerApartmentsPage() {
             )}
             <div className="row between">
               <h3>{apt.title}</h3>
-              <span className={statusBadgeClass(apt.status)}>{apt.status}</span>
+              <span className={statusBadgeClass(apt.status)}>
+                {apartmentStatusLabel(apt.status)}
+              </span>
             </div>
             <p>
               {apt.city}, {apt.country}

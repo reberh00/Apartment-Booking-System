@@ -2,7 +2,11 @@ const fs = require("fs");
 const router = require("express").Router();
 const { z } = require("zod");
 const prisma = require("../utils/prisma");
-const { authenticate, authorize } = require("../middleware/auth");
+const {
+  authenticate,
+  authenticateOptional,
+  authorize,
+} = require("../middleware/auth");
 const { createError } = require("../middleware/errorHandler");
 const { broadcastAvailabilityChanged } = require("../websocket");
 const {
@@ -563,7 +567,7 @@ router.get(
   },
 );
 
-router.get("/:id", async (req, res, next) => {
+router.get("/:id", authenticateOptional, async (req, res, next) => {
   try {
     const apartment = await prisma.apartment.findUnique({
       where: { id: req.params.id },
@@ -597,6 +601,16 @@ router.get("/:id", async (req, res, next) => {
 
     if (!apartment) {
       return next(createError("Apartman nije pronađen", 404));
+    }
+
+    if (apartment.status === "INACTIVE") {
+      const viewer = req.user;
+      const isOwner = viewer && apartment.ownerId === viewer.id;
+      const isAdmin = viewer && viewer.role === "ADMIN";
+
+      if (!isOwner && !isAdmin) {
+        return next(createError("Apartman nije pronađen", 404));
+      }
     }
 
     let avgRating = null;
@@ -749,14 +763,19 @@ router.delete(
         return next(createError("Nemate ovlasti za ovaj apartman", 403));
       }
 
-      const photos = await prisma.apartmentPhoto.findMany({
-        where: { apartmentId: req.params.id },
-        select: { url: true },
+      if (apartment.status === "INACTIVE") {
+        return next(createError("Apartman je već isključen", 400));
+      }
+
+      const updated = await prisma.apartment.update({
+        where: { id: req.params.id },
+        data: { status: "INACTIVE" },
       });
 
-      await prisma.apartment.delete({ where: { id: req.params.id } });
-      photos.forEach((photo) => removeLocalPhotoFile(photo.url));
-      res.json({ message: "Apartman obrisan" });
+      res.json({
+        message: "Apartman je isključen i više nije vidljiv gostima.",
+        apartment: updated,
+      });
     } catch (err) {
       next(err);
     }

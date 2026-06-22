@@ -93,8 +93,21 @@ export default function OwnerAnalyticsPage() {
             <p>{analytics.apartments.length}</p>
           </div>
           <div className="list-item">
-            <h3>Mjesečni prihodi zapisa</h3>
-            <p>{analytics.monthlyIncome.length}</p>
+            <h3>Ukupan prihod</h3>
+            <p>{(analytics.totalIncomeAllTime ?? 0).toFixed(2)} EUR</p>
+          </div>
+          <div className="list-item">
+            <h3>Ukupan broj realiziranih rezervacija</h3>
+            <p>{analytics.totalCompletedReservations ?? 0}</p>
+          </div>
+          <div className="list-item">
+            <h3>Prihod u odabranom periodu</h3>
+            <p>
+              {analytics.monthlyIncome
+                .reduce((sum, m) => sum + Number(m.income || 0), 0)
+                .toFixed(2)}{" "}
+              EUR
+            </p>
           </div>
         </div>
       ) : (

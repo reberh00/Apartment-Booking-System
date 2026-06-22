@@ -112,11 +112,21 @@ router.post(
           pricePerNight: true,
           minNights: true,
           maxGuests: true,
+          status: true,
         },
       });
 
       if (!apartment) {
         return next(createError("Apartman nije pronađen", 404));
+      }
+
+      if (apartment.status !== "APPROVED") {
+        return next(
+          createError(
+            "Ovaj apartman trenutno nije dostupan za rezervaciju",
+            400,
+          ),
+        );
       }
 
       if (apartment.ownerId === req.user.id) {

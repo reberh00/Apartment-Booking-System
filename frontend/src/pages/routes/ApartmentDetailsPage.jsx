@@ -460,7 +460,7 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
     }
 
     const confirmed = window.confirm(
-      "Jeste li sigurni da želite obrisati ovaj apartman?",
+      "Jeste li sigurni da želite obrisati ovaj apartman? Oglas više neće biti vidljiv gostima, ali ćete zadržati svu povijest rezervacija i statistiku.",
     );
     if (!confirmed) {
       return;
@@ -469,10 +469,11 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
     try {
       setDeleting(true);
       await api.del(`/apartments/${apartmentId}`, token);
-      setFeedback("Apartman je obrisan.");
-      navigate("/app/owner/apartments");
+      setFeedback("Apartman je isključen i više nije vidljiv gostima.");
+      await refreshApartmentDetails();
     } catch (err) {
       setFeedback(err.message, true);
+    } finally {
       setDeleting(false);
     }
   }
@@ -784,7 +785,7 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
               Odustani
             </button>
           ) : null}
-          {isOwner ? (
+          {isOwner && apartment.status !== "INACTIVE" ? (
             <button
               type="button"
               className="ghost"
@@ -803,6 +804,14 @@ export default function ApartmentDetailsPage({ defaultBackPath }) {
           </button>
         </div>
       </div>
+
+      {apartment.status === "INACTIVE" ? (
+        <div className="banner banner-muted">
+          Ovaj apartman je <strong>isključen</strong> i nije vidljiv gostima.
+          Vidljiv je samo vama. Sva povijest rezervacija i statistika su
+          sačuvani.
+        </div>
+      ) : null}
 
       <ApartmentPhotosStrip photos={apartmentPhotos} title={apartment.title} />
 

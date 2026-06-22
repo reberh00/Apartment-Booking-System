@@ -79,7 +79,23 @@ router.get(
         _count: true,
       });
 
-      res.json({ apartments, reservationStats, monthlyIncome, avgRatings });
+      const allTimeCompleted = await prisma.reservation.aggregate({
+        where: { apartmentId: { in: aptIds }, status: "COMPLETED" },
+        _sum: { totalPrice: true },
+        _count: true,
+      });
+
+      const totalIncomeAllTime = Number(allTimeCompleted._sum.totalPrice || 0);
+      const totalCompletedReservations = allTimeCompleted._count;
+
+      res.json({
+        apartments,
+        reservationStats,
+        monthlyIncome,
+        avgRatings,
+        totalIncomeAllTime,
+        totalCompletedReservations,
+      });
     } catch (err) {
       next(err);
     }

@@ -212,6 +212,19 @@ a.notification-item:hover {
   color: #334155;
 }
 
+.banner {
+  margin: 0.75rem 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.banner-muted {
+  background: #e2e8f0;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
 .notif-bubble {
   min-width: 1.2rem;
   text-align: center;
