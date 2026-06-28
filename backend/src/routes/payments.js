@@ -77,7 +77,7 @@ async function createReservationFromSession(session) {
         checkOut: new Date(checkOut),
         numGuests: parseInt(numGuests, 10),
         totalPrice: parseFloat(totalPrice),
-        status: "PENDING",
+        status: "CONFIRMED",
         paymentStatus: "PAID",
         paymentAmount: parseFloat(session.amount_total) / 100,
         stripePaymentIntentId: paymentIntentId,
@@ -87,7 +87,7 @@ async function createReservationFromSession(session) {
       data: {
         userId: apartment.ownerId,
         type: "RESERVATION_NEW",
-        content: `Nova plaćena rezervacija za "${apartment.title}" od ${guest.firstName} ${guest.lastName} - čeka vašu potvrdu`,
+        content: `Nova plaćena i potvrđena rezervacija za "${apartment.title}" od ${guest.firstName} ${guest.lastName}`,
       },
     }),
   ]);
