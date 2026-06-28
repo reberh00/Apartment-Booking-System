@@ -135,7 +135,11 @@ export default function ApartmentEditForm({
         apartmentId={apartmentId}
       />
 
-      <button type="submit" disabled={saving}>
+      <button
+        type="submit"
+        disabled={saving}
+        style={{ gridColumn: "1 / -1", width: "100%" }}
+      >
         {saving ? "Spremanje..." : "Spremi promjene"}
       </button>
     </form>

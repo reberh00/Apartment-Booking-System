@@ -194,6 +194,22 @@ function addDays(days) {
   return d;
 }
 
+function createRng(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+function randInt(rng, min, max) {
+  return Math.floor(rng() * (max - min + 1)) + min;
+}
+
+function pad12(n) {
+  return String(n).padStart(12, "0");
+}
+
 async function main() {
   console.log("Seeding baze podataka...");
 
@@ -1520,6 +1536,62 @@ async function main() {
       create: reservation,
     });
   }
+
+  // Generirane dodatne rezervacije: nasumičan broj po apartmanu,
+  // s nasumičnim datumima do ~5 godina unatrag. Deterministički
+  // (seeded RNG + fiksni ID-ovi) kako bi seed ostao idempotentan.
+  const priceByApartment = Object.fromEntries(
+    apartments.map((a) => [a.id, a.pricePerNight]),
+  );
+  const maxGuestsByApartment = Object.fromEntries(
+    apartments.map((a) => [a.id, a.maxGuests]),
+  );
+  const generatedGuestIds = [
+    guest1.id,
+    guest2.id,
+    guest3.id,
+    guest4.id,
+    guest5.id,
+  ];
+  const reservationRng = createRng(987654321);
+  let genCounter = 0;
+  const generatedReservations = [];
+
+  for (const apartment of apartments) {
+    const count = randInt(reservationRng, 8, 25);
+    for (let i = 0; i < count; i++) {
+      const startDaysAgo = randInt(reservationRng, 30, 1825);
+      const nights = randInt(reservationRng, 2, 7);
+      const pricePerNight = priceByApartment[apartment.id] || 80;
+      const maxGuests = maxGuestsByApartment[apartment.id] || 4;
+      genCounter += 1;
+      generatedReservations.push({
+        id: `41000000-0000-0000-0000-${pad12(genCounter)}`,
+        apartmentId: apartment.id,
+        guestId:
+          generatedGuestIds[
+            randInt(reservationRng, 0, generatedGuestIds.length - 1)
+          ],
+        checkIn: addDays(-startDaysAgo),
+        checkOut: addDays(-startDaysAgo + nights),
+        numGuests: randInt(reservationRng, 1, maxGuests),
+        totalPrice: nights * pricePerNight,
+        status: "COMPLETED",
+      });
+    }
+  }
+
+  for (const reservation of generatedReservations) {
+    await prisma.reservation.upsert({
+      where: { id: reservation.id },
+      update: reservation,
+      create: reservation,
+    });
+  }
+
+  console.log(
+    `Generirano dodatnih rezervacija: ${generatedReservations.length}`,
+  );
 
   const reviewComments = [
     // Apartment 1 - 5-star heavy (excellent apartment)
