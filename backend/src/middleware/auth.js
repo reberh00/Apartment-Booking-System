@@ -61,9 +61,7 @@ const authenticateOptional = async (req, res, next) => {
     if (user) {
       req.user = user;
     }
-  } catch (err) {
-    // Invalid/expired token is treated as anonymous for optional auth.
-  }
+  } catch (err) {}
 
   next();
 };

@@ -24,7 +24,6 @@ router.get(
         _sum: { totalPrice: true },
       });
 
-      // Use custom date range if provided, otherwise default to 12 months
       let checkInFilter = {};
       if (startDate && endDate) {
         checkInFilter = {

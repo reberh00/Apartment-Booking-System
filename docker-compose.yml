@@ -27,8 +27,8 @@ services:
       PORT: "3000"
       FRONTEND_URL: "http://localhost:8080"
       NODE_ENV: "production"
-      STRIPE_SECRET_KEY: "sk_test_your_stripe_secret_key_here"
-      STRIPE_WEBHOOK_SECRET: "whsec_your_webhook_secret_here"
+      STRIPE_SECRET_KEY: "sk_test_51TkhOvRyG7RlIecMCnNoc8xsDVoQwk33RPOO4l2BstryOwb82krOtauMWDM4Qs2CcFGffiea2cJnyV4nvUQX3Mvc00t8CIhBx6"
+      STRIPE_WEBHOOK_SECRET: "whsec_35af9830ea948f30c232cf629cee5e7e1d532f938a475e423fd4a05ab7806592"
     volumes:
       - ./backend/uploads:/app/uploads
     depends_on:
