@@ -41,6 +41,19 @@ router.post(
     try {
       const { name, icon, apartmentId } = contentSchema.parse(req.body);
 
+      const existing = await prisma.content.findFirst({
+        where: {
+          name,
+          apartmentId: apartmentId || null,
+        },
+      });
+
+      if (existing) {
+        return res.status(400).json({
+          error: "Sadržaj s tim imenom već postoji za ovaj apartman.",
+        });
+      }
+
       const content = await prisma.content.create({
         data: { name, icon: icon || "star", apartmentId: apartmentId || null },
       });

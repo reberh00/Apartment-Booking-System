@@ -83,6 +83,7 @@ const IDS = {
     r53: "40000000-0000-0000-0000-000000000053",
     r54: "40000000-0000-0000-0000-000000000054",
     r55: "40000000-0000-0000-0000-000000000055",
+    r56: "40000000-0000-0000-0000-000000000056",
   },
   reviews: {
     rev1: "50000000-0000-0000-0000-000000000001",
@@ -1525,6 +1526,17 @@ async function main() {
       checkOut: addDays(0),
       numGuests: 4,
       totalPrice: 272,
+      status: "COMPLETED",
+    },
+    // Demo reservation: COMPLETED but no review (for demo)
+    {
+      id: IDS.reservations.r56,
+      apartmentId: IDS.apartments.apt1,
+      guestId: guest1.id,
+      checkIn: addDays(-7),
+      checkOut: addDays(-4),
+      numGuests: 2,
+      totalPrice: 285,
       status: "COMPLETED",
     },
   ];
