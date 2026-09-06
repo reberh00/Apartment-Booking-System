@@ -10,12 +10,6 @@ export default function PublicPage() {
 
   return (
     <>
-      <PublicSearchSection
-        search={search}
-        setSearch={setSearch}
-        loadApartments={loadApartments}
-        apartmentsResult={apartmentsResult}
-      />
       <section className="card">
         <h2>{authMode === "login" ? "Prijava" : "Registracija"}</h2>
         <form onSubmit={submitAuth} className="grid grid-2">
@@ -100,6 +94,12 @@ export default function PublicPage() {
             : "Već imate račun? Prijava"}
         </button>
       </section>
+      <PublicSearchSection
+        search={search}
+        setSearch={setSearch}
+        loadApartments={loadApartments}
+        apartmentsResult={apartmentsResult}
+      />
     </>
   );
 }
