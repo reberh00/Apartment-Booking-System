@@ -1,0 +1,31 @@
+-- The composite unique index from the previous migration,
+-- "contents_name_normalized_apartment_id_key" on
+-- ("name_normalized", "apartment_id"), does NOT protect the shared/standard
+-- content catalog (rows where apartment_id IS NULL).
+--
+-- In Postgres, a UNIQUE index treats every NULL as distinct from every
+-- other NULL, so any number of rows with the same name_normalized and
+-- apartment_id = NULL are still considered "different" and allowed to
+-- coexist. That's exactly the bucket "WiFi" / "Parking" / etc. live in, so
+-- the constraint was silently doing nothing for them. It works correctly
+-- for apartment-scoped custom contents because there apartment_id is a
+-- real, comparable UUID, not NULL.
+--
+-- Fix: add a second, partial unique index that only covers rows where
+-- apartment_id IS NULL. Because every row it applies to is already known
+-- to be NULL on that column, the constraint only needs to compare
+-- name_normalized values directly, which Postgres enforces normally.
+--
+-- NOTE: Prisma's schema language has no syntax for a partial (WHERE-clause)
+-- index, so this index intentionally has no corresponding line in
+-- schema.prisma. It still exists in the database and is tracked here in
+-- migration history; just don't expect `prisma db pull` to reproduce it.
+--
+-- IMPORTANT: if this migration fails, it means you already have duplicate
+-- global contents differing only by case/whitespace (e.g. both "WiFi" and
+-- "wifi" with apartment_id NULL). Find and merge/delete them first, e.g.:
+--   SELECT name_normalized, COUNT(*) FROM contents
+--   WHERE apartment_id IS NULL GROUP BY name_normalized HAVING COUNT(*) > 1;
+CREATE UNIQUE INDEX "contents_global_name_normalized_key"
+  ON "contents" ("name_normalized")
+  WHERE "apartment_id" IS NULL;

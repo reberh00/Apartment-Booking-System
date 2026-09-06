@@ -441,11 +441,12 @@ async function main() {
   ];
 
   for (const content of contents) {
+    const nameNormalized = content.name.trim().toLowerCase();
     const existing = await prisma.content.findFirst({
-      where: { name: content.name, apartmentId: null },
+      where: { nameNormalized, apartmentId: null },
     });
     if (!existing) {
-      await prisma.content.create({ data: content });
+      await prisma.content.create({ data: { ...content, nameNormalized } });
     }
   }
 

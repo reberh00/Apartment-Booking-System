@@ -120,15 +120,23 @@ model ApartmentPhoto {
 }
 
 model Content {
-  id          String             @id @default(uuid())
-  name        String
-  icon        String             // naziv ikone (npr. "wifi", "parking", "pool")
-  apartmentId String?            @map("apartment_id")
-  apartment   Apartment?         @relation("ApartmentCustomContents", fields: [apartmentId], references: [id], onDelete: Cascade)
+  id             String             @id @default(uuid())
+  name           String
+  nameNormalized String             @map("name_normalized") // lower(trim(name)), used for case-insensitive uniqueness
+  icon           String             // naziv ikone (npr. "wifi", "parking", "pool")
+  apartmentId    String?            @map("apartment_id")
+  apartment      Apartment?         @relation("ApartmentCustomContents", fields: [apartmentId], references: [id], onDelete: Cascade)
 
-  apartments  ApartmentContent[]
+  apartments     ApartmentContent[]
 
-  @@unique([name, apartmentId])
+  // NOTE: this constraint alone does NOT protect the global/standard
+  // catalog (apartmentId === null) because Postgres treats every NULL as
+  // distinct in a unique index. A separate partial unique index
+  // ("contents_global_name_normalized_key", added in migration
+  // 20260906130000_content_global_name_partial_unique) covers that case;
+  // it isn't representable here since Prisma's schema language has no
+  // WHERE-clause/partial index syntax.
+  @@unique([nameNormalized, apartmentId])
   @@index([apartmentId])
   @@map("contents")
 }
