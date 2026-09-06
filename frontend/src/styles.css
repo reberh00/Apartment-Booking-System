@@ -161,6 +161,7 @@ a.notification-item:hover {
   display: block;
 }
 
+
 .card-link-reset:visited,
 .card-link-reset:hover,
 .card-link-reset:active {
@@ -302,6 +303,34 @@ a.notification-item:hover {
 
 .autocomplete-item:hover {
   background: #eef3fb;
+}
+
+.multiselect-trigger {
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.multiselect-empty {
+  color: #64748b;
+  cursor: default;
+}
+
+.multiselect-empty:hover {
+  background: none;
+}
+
+.multiselect-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: inherit;
 }
 
 .stats-year-list {

@@ -37,6 +37,25 @@ const apartmentSchema = z.object({
   contentIds: z.array(z.string().uuid()).optional(),
 });
 
+const CONTENT_ID_PATTERN = new RegExp(`^${UUID}$`);
+
+// Parses the "?contentIds=<uuid>,<uuid>" query param into a de-duplicated
+// array of valid UUIDs, silently dropping anything malformed. This is a
+// search filter, not a mutation, so we favor being lenient (ignore garbage)
+// over rejecting the whole request with a 400.
+function parseContentIdsFilter(raw) {
+  if (!raw) {
+    return [];
+  }
+
+  const ids = String(raw)
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => CONTENT_ID_PATTERN.test(id));
+
+  return [...new Set(ids)];
+}
+
 function normalizeCity(value) {
   return value
     .normalize("NFKD")
@@ -159,11 +178,13 @@ router.get("/", async (req, res, next) => {
       guests,
       minPrice,
       maxPrice,
+      contentIds,
       page = 1,
       limit = 12,
     } = req.query;
 
     const where = { status: "APPROVED" };
+    const andConditions = [];
 
     if (city) {
       where.city = { contains: city, mode: "insensitive" };
@@ -189,7 +210,7 @@ router.get("/", async (req, res, next) => {
       const ci = new Date(checkIn);
       const co = new Date(checkOut);
 
-      where.AND = [
+      andConditions.push(
         {
           reservations: {
             none: {
@@ -206,7 +227,25 @@ router.get("/", async (req, res, next) => {
             },
           },
         },
-      ];
+      );
+    }
+
+    // "contentIds" is a comma-separated list of Content UUIDs, e.g.
+    // ?contentIds=<uuid1>,<uuid2>. An apartment only matches if it has
+    // *every* requested content, not just one of them, so each id gets
+    // its own `some` condition ANDed together rather than a single
+    // `in`-based condition (which would only require at least one match).
+    const requestedContentIds = parseContentIdsFilter(contentIds);
+    if (requestedContentIds.length) {
+      andConditions.push(
+        ...requestedContentIds.map((contentId) => ({
+          contents: { some: { contentId } },
+        })),
+      );
+    }
+
+    if (andConditions.length) {
+      where.AND = andConditions;
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);

@@ -41,6 +41,57 @@ describe("Apartment Routes", () => {
       expect(response.status).toBe(200);
       expect(response.body.apartments).toHaveLength(0);
     });
+
+    it("should filter apartments requiring all selected contents (AND semantics)", async () => {
+      prisma.apartment.findMany.mockResolvedValue([]);
+      prisma.apartment.count.mockResolvedValue(0);
+
+      const wifiId = "11111111-1111-1111-1111-111111111111";
+      const poolId = "22222222-2222-2222-2222-222222222222";
+
+      const response = await request(app).get(
+        `/api/apartments?contentIds=${wifiId},${poolId}`,
+      );
+
+      expect(response.status).toBe(200);
+
+      const whereArg = prisma.apartment.findMany.mock.calls[0][0].where;
+      expect(whereArg.AND).toEqual([
+        { contents: { some: { contentId: wifiId } } },
+        { contents: { some: { contentId: poolId } } },
+      ]);
+    });
+
+    it("should ignore malformed contentIds instead of erroring", async () => {
+      prisma.apartment.findMany.mockResolvedValue([]);
+      prisma.apartment.count.mockResolvedValue(0);
+
+      const response = await request(app).get(
+        "/api/apartments?contentIds=not-a-uuid,,%20",
+      );
+
+      expect(response.status).toBe(200);
+      const whereArg = prisma.apartment.findMany.mock.calls[0][0].where;
+      expect(whereArg.AND).toBeUndefined();
+    });
+
+    it("should combine contentIds with the check-in/check-out availability filter", async () => {
+      prisma.apartment.findMany.mockResolvedValue([]);
+      prisma.apartment.count.mockResolvedValue(0);
+
+      const wifiId = "11111111-1111-1111-1111-111111111111";
+
+      const response = await request(app).get(
+        `/api/apartments?checkIn=2026-01-01&checkOut=2026-01-05&contentIds=${wifiId}`,
+      );
+
+      expect(response.status).toBe(200);
+      const whereArg = prisma.apartment.findMany.mock.calls[0][0].where;
+      expect(whereArg.AND).toHaveLength(3);
+      expect(whereArg.AND).toContainEqual({
+        contents: { some: { contentId: wifiId } },
+      });
+    });
   });
 
   describe("GET /api/apartments/:id", () => {

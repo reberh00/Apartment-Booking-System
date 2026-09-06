@@ -15,7 +15,11 @@ export function useApartmentSearch() {
     try {
       const params = new URLSearchParams();
       Object.entries(search).forEach(([key, value]) => {
-        if (value) params.set(key, value);
+        if (Array.isArray(value)) {
+          if (value.length) params.set(key, value.join(","));
+        } else if (value) {
+          params.set(key, value);
+        }
       });
       const data = await api.get(`/apartments?${params.toString()}`);
       setApartmentsResult(data);

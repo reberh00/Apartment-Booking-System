@@ -1,7 +1,12 @@
 import { Link } from "react-router-dom";
 import { assetUrl } from "../api";
+import ContentsMultiSelect from "./ContentsMultiSelect";
 
 const dateFields = new Set(["checkIn", "checkOut"]);
+// contentIds holds an array of selected Content ids and needs its own
+// multi-select control, so it's rendered separately below instead of going
+// through the generic text/date <input> loop.
+const CUSTOM_FIELDS = new Set(["contentIds"]);
 
 export default function PublicSearchSection({
   search,
@@ -13,19 +18,30 @@ export default function PublicSearchSection({
     <section className="card">
       <h2>Javno pretraživanje apartmana</h2>
       <div className="grid grid-6">
-        {Object.entries(search).map(([key, value]) => (
-          <label key={key}>
-            {key}
-            <input
-              type={dateFields.has(key) ? "date" : "text"}
-              value={value}
-              onChange={(e) =>
-                setSearch((prev) => ({ ...prev, [key]: e.target.value }))
-              }
-              placeholder={dateFields.has(key) ? undefined : key}
-            />
-          </label>
-        ))}
+        {Object.entries(search)
+          .filter(([key]) => !CUSTOM_FIELDS.has(key))
+          .map(([key, value]) => (
+            <label key={key}>
+              {key}
+              <input
+                type={dateFields.has(key) ? "date" : "text"}
+                value={value}
+                onChange={(e) =>
+                  setSearch((prev) => ({ ...prev, [key]: e.target.value }))
+                }
+                placeholder={dateFields.has(key) ? undefined : key}
+              />
+            </label>
+          ))}
+        <label>
+          Sadržaji
+          <ContentsMultiSelect
+            selectedIds={search.contentIds}
+            onChange={(ids) =>
+              setSearch((prev) => ({ ...prev, contentIds: ids }))
+            }
+          />
+        </label>
       </div>
       <button onClick={loadApartments}>Pretraži</button>
       <p className="meta">Rezultata: {apartmentsResult.total}</p>

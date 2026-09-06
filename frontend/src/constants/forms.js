@@ -5,6 +5,7 @@ export const defaultSearch = {
   guests: "",
   minPrice: "",
   maxPrice: "",
+  contentIds: [],
 };
 
 export const defaultApartmentForm = {
